@@ -4,6 +4,7 @@ A java library for communicating with a [Matrix](https://matrix.org) server, mea
 
 ## Usage
 
+Currently requires at least JDK 21.
 If you are using Maven, add the following repository to your `pom.xml`:
 
 ```xml
