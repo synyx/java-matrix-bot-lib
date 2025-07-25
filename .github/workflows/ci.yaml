@@ -1,0 +1,21 @@
+name: ci
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    container: eclipse-temurin:21
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build with Gradle
+        run: |
+          ./gradlew build
+      - name: Test with Gradle
+        run: |
+          ./gradlew check

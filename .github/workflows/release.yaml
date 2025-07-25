@@ -1,0 +1,21 @@
+name: release
+on:
+  push:
+    tags:
+      - "v*.*.*"
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    container: eclipse-temurin:21
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build with Gradle
+        env:
+          VERSION: ${{ github.ref_name }}
+          ORG_GRADLE_PROJECT_synyxPublicReleasesUsername: ${{ secrets.NEXUS_PUBLIC_USERNAME }}
+          ORG_GRADLE_PROJECT_synyxPublicReleasesPassword: ${{ secrets.NEXUS_PUBLIC_PASSWORD }}
+        run: |
+          # Strip leading v from tag
+          VERSION=${VERSION#v}
+          ./gradlew -Pversion="${VERSION}" publish
