@@ -4,7 +4,7 @@ on:
     tags:
       - "v*.*.*"
 jobs:
-  build-test:
+  release:
     runs-on: ubuntu-latest
     container: eclipse-temurin:21
     steps:
