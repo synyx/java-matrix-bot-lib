@@ -9,7 +9,7 @@ jobs:
     container: eclipse-temurin:21
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build with Gradle
         env:
           VERSION: ${{ github.ref_name }}
