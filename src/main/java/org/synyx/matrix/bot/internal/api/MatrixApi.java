@@ -3,6 +3,7 @@ package org.synyx.matrix.bot.internal.api;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.MatrixAuthentication;
 import org.synyx.matrix.bot.internal.api.dto.EventIdResponseDto;
@@ -43,7 +44,7 @@ public class MatrixApi {
     try {
       this.baseUri = new URI(hostname);
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new MatrixCommunicationException("Invalid matrix URI", e);
     }
     this.authentication = authentication;
     this.httpClient = HttpClient.newHttpClient();
@@ -55,7 +56,7 @@ public class MatrixApi {
     httpClient.shutdownNow();
   }
 
-  public boolean login() throws IOException, InterruptedException {
+  public void login() throws IOException, InterruptedException, MatrixApiException {
 
     final var response = httpClient.send(
         post(
@@ -70,105 +71,87 @@ public class MatrixApi {
         jsonBodyHandler(MatrixLoginResponseDto.class)
     );
 
-    final var maybeBody = Optional.ofNullable(response.body());
-    maybeBody.ifPresent(body -> {
-      final var userId = MatrixUserId.from(body.userId())
-          .orElseThrow(IllegalStateException::new);
-      authentication.setUserId(userId);
-      authentication.setBearerToken(body.accessToken());
-    });
+    expected2xx("login", response);
 
-    return maybeBody.isPresent();
-  }
-
-  public Optional<SyncResponseDto> sync(String since) throws InterruptedException {
-
-    try {
-      final var response = httpClient.send(
-          get(
-              "/_matrix/client/v3/sync",
-              "timeout=%d&since=%s".formatted(
-                  SYNC_TIMEOUT.toMillis(),
-                  URLEncoder.encode(since, StandardCharsets.UTF_8)
-              )
-          ).timeout(SYNC_REQUEST_TIMEOUT).build(),
-          jsonBodyHandler(SyncResponseDto.class)
-      );
-
-      return Optional.ofNullable(response.body());
-    } catch (IOException e) {
-      log.error("Failed to sync", e);
+    final var body = response.body();
+    if (body == null) {
+      throw new MatrixApiException("Received no login data", response);
     }
 
-    return Optional.empty();
+    final var userId = MatrixUserId.from(body.userId())
+        .orElseThrow(IllegalStateException::new);
+    authentication.setUserId(userId);
+    authentication.setBearerToken(body.accessToken());
   }
 
-  public Optional<SyncResponseDto> syncFull() throws InterruptedException {
+  public Optional<SyncResponseDto> sync(String since) throws IOException, InterruptedException, MatrixApiException {
 
-    try {
-      final var response = httpClient.send(
-          get("/_matrix/client/v3/sync", "timeout=0").build(),
-          jsonBodyHandler(SyncResponseDto.class)
-      );
+    final var response = httpClient.send(
+        get(
+            "/_matrix/client/v3/sync",
+            "timeout=%d&since=%s".formatted(
+                SYNC_TIMEOUT.toMillis(),
+                URLEncoder.encode(since, StandardCharsets.UTF_8)
+            )
+        ).timeout(SYNC_REQUEST_TIMEOUT).build(),
+        jsonBodyHandler(SyncResponseDto.class)
+    );
 
-      return Optional.ofNullable(response.body());
-    } catch (IOException e) {
-      log.error("Failed to sync", e);
-    }
+    expected2xx("syncing", response);
 
-    return Optional.empty();
+    return Optional.ofNullable(response.body());
   }
 
-  public boolean sendEvent(String roomId, String eventType, Object event) throws InterruptedException {
+  public Optional<SyncResponseDto> syncFull() throws IOException, InterruptedException, MatrixApiException {
+
+    final var response = httpClient.send(
+        get("/_matrix/client/v3/sync", "timeout=0").build(),
+        jsonBodyHandler(SyncResponseDto.class)
+    );
+
+    expected2xx("full syncing", response);
+
+    return Optional.ofNullable(response.body());
+  }
+
+  public String sendEvent(String roomId, String eventType, Object event) throws IOException, InterruptedException, MatrixApiException {
 
     final var uri = "/_matrix/client/v3/rooms/%s/send/%s/%s".formatted(
         roomId,
         eventType,
         UUID.randomUUID()
     );
-    try {
-      final var response = httpClient.send(
-          put(uri, null, event).build(),
-          jsonBodyHandler(EventIdResponseDto.class)
-      );
-      return response.statusCode() >= 200 && response.statusCode() < 300;
-    } catch (IOException e) {
-      log.error("Failed to send event", e);
-    }
 
-    return false;
+    final var response = httpClient.send(
+        put(uri, null, event).build(),
+        jsonBodyHandler(EventIdResponseDto.class)
+    );
+
+    expected2xx("sending event", response);
+
+    return response.body().eventId();
   }
 
-  public boolean joinRoom(String roomId, String reason) throws InterruptedException {
+  public void joinRoom(String roomId, String reason) throws IOException, InterruptedException, MatrixApiException {
 
     final var uri = "/_matrix/client/v3/rooms/%s/join".formatted(roomId);
-    try {
-      final var response = httpClient.send(
-          post(uri, null, new RoomJoinPayloadDto(reason)).build(),
-          HttpResponse.BodyHandlers.ofString()
-      );
-      return response.statusCode() >= 200 && response.statusCode() < 300;
-    } catch (IOException e) {
-      log.error("Failed to join room", e);
-    }
+    final var response = httpClient.send(
+        post(uri, null, new RoomJoinPayloadDto(reason)).build(),
+        HttpResponse.BodyHandlers.ofString()
+    );
 
-    return false;
+    expected2xx("joining room", response);
   }
 
-  public boolean leaveRoom(String roomId, String reason) throws InterruptedException {
+  public void leaveRoom(String roomId, String reason) throws IOException, InterruptedException, MatrixApiException {
 
     final var uri = "/_matrix/client/v3/rooms/%s/leave".formatted(roomId);
-    try {
-      final var response = httpClient.send(
-          post(uri, null, new RoomLeavePayloadDto(reason)).build(),
-          HttpResponse.BodyHandlers.ofString()
-      );
-      return response.statusCode() >= 200 && response.statusCode() < 300;
-    } catch (IOException e) {
-      log.error("Failed to leave room", e);
-    }
+    final var response = httpClient.send(
+        post(uri, null, new RoomLeavePayloadDto(reason)).build(),
+        HttpResponse.BodyHandlers.ofString()
+    );
 
-    return false;
+    expected2xx("leaving room", response);
   }
 
   private HttpRequest.Builder get(String url, String query) {
@@ -183,7 +166,7 @@ public class MatrixApi {
           .header("Content-Type", "application/json")
           .PUT(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
+      throw new MatrixCommunicationException("Failed to parse JSON", e);
     }
   }
 
@@ -194,7 +177,7 @@ public class MatrixApi {
           .header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
+      throw new MatrixCommunicationException("Failed to parse JSON", e);
     }
   }
 
@@ -205,7 +188,7 @@ public class MatrixApi {
       builder = HttpRequest.newBuilder(new URI(baseUri.getScheme(), null, baseUri.getHost(), baseUri.getPort(), url, query, null))
           .timeout(DEFAULT_REQUEST_TIMEOUT);
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new MatrixCommunicationException("Invalid URI when trying to make API request", e);
     }
 
     authentication.getBearerToken().ifPresent(token -> builder.header("Authorization", "Bearer %s".formatted(token)));
@@ -217,12 +200,19 @@ public class MatrixApi {
 
     return responseInfo -> HttpResponse.BodySubscribers.mapping(HttpResponse.BodySubscribers.ofByteArray(), bytes -> {
           try {
-            log.debug("sync: {}", new String(bytes, StandardCharsets.UTF_8));
             return objectMapper.readValue(bytes, clazz);
           } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new MatrixCommunicationException("Invalid URI when trying to make API request", e);
           }
         }
     );
+  }
+
+  private void expected2xx(String performedAction, HttpResponse<?> response) throws MatrixApiException {
+
+    final var statusCode = response.statusCode();
+    if (statusCode < 200 || statusCode >= 300) {
+      throw new MatrixApiException(performedAction, response);
+    }
   }
 }

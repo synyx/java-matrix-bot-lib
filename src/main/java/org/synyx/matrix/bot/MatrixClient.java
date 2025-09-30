@@ -14,9 +14,11 @@ import org.synyx.matrix.bot.internal.MatrixAuthentication;
 import org.synyx.matrix.bot.internal.MatrixEventNotifier;
 import org.synyx.matrix.bot.internal.MatrixStateSynchronizer;
 import org.synyx.matrix.bot.internal.api.MatrixApi;
+import org.synyx.matrix.bot.internal.api.MatrixApiException;
 import org.synyx.matrix.bot.internal.api.dto.MessageDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionRelatesToDto;
+import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -75,9 +77,10 @@ public class MatrixClient {
     while (!interruptionRequested) {
       try {
         if (!authentication.isAuthenticated()) {
-          if (!api.login()) {
-            log.error("Failed to login to matrix server!");
-            return;
+          try {
+            api.login();
+          } catch (MatrixApiException e) {
+            throw new MatrixCommunicationException("Failed to login to matrix server!", e);
           }
 
           log.info("Successfully logged in to matrix server as {}",
@@ -90,17 +93,16 @@ public class MatrixClient {
         state = new MatrixState(authentication.getUserId().orElseThrow(IllegalStateException::new));
         stateSynchronizer = new MatrixStateSynchronizer(state, objectMapper);
 
-        var maybeSyncResponse = api.syncFull();
-        String lastBatch;
-        if (maybeSyncResponse.isPresent()) {
-          final var syncResponse = maybeSyncResponse.get();
-          lastBatch = syncResponse.nextBatch();
-
-          stateSynchronizer.synchronizeState(syncResponse);
-        } else {
-          log.error("Failed to perform initial sync");
-          return;
+        SyncResponseDto syncResponse;
+        try {
+          syncResponse = api.syncFull()
+              .orElseThrow(() -> new MatrixCommunicationException("No data in initial sync"));
+        } catch (MatrixApiException e) {
+          throw new MatrixCommunicationException("Failed to perform initial sync");
         }
+
+        String lastBatch = syncResponse.nextBatch();
+        stateSynchronizer.synchronizeState(syncResponse);
 
         if (eventNotifier != null) {
           eventNotifier.getConsumer().onConnected(state);
@@ -116,9 +118,17 @@ public class MatrixClient {
         }
 
         while (!interruptionRequested) {
-          maybeSyncResponse = api.sync(lastBatch);
-          if (maybeSyncResponse.isPresent()) {
-            final var syncResponse = maybeSyncResponse.get();
+          Optional<SyncResponseDto> maybePartialSyncResponse;
+
+          try {
+            maybePartialSyncResponse = api.sync(lastBatch);
+          } catch (MatrixApiException e) {
+            log.warn("Could not partial sync", e);
+            maybePartialSyncResponse = Optional.empty();
+          }
+
+          if (maybePartialSyncResponse.isPresent()) {
+            syncResponse = maybePartialSyncResponse.get();
             lastBatch = syncResponse.nextBatch();
 
             stateSynchronizer.synchronizeState(syncResponse);
@@ -155,40 +165,62 @@ public class MatrixClient {
     return Optional.ofNullable(state);
   }
 
-  public boolean sendMessage(MatrixRoomId roomId, String messageBody) {
+  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
 
     try {
-      return api.sendEvent(roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text"));
-    } catch (InterruptedException e) {
-      return false;
+      return MatrixEventId.from(
+          api.sendEvent(roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text"))
+      );
+    } catch (InterruptedException | IOException e) {
+      log.error("Failed to send message", e);
+    } catch (MatrixApiException e) {
+      log.warn("Could not send message", e);
     }
+
+    return Optional.empty();
   }
 
-  public boolean addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
+  public Optional<MatrixEventId> addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
 
     final var reactionDto = new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
     try {
-      return api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto);
-    } catch (InterruptedException e) {
-      return false;
+      return MatrixEventId.from(
+          api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto)
+      );
+    } catch (InterruptedException | IOException e) {
+      log.error("Failed to add reaction", e);
+    } catch (MatrixApiException e) {
+      log.warn("Could not add reaction", e);
     }
+
+    return Optional.empty();
   }
 
   public boolean joinRoom(MatrixRoomId roomId) {
 
     try {
-      return api.joinRoom(roomId.getFormatted(), "hello there");
-    } catch (InterruptedException e) {
-      return false;
+      api.joinRoom(roomId.getFormatted(), "i'm a bot");
+      return true;
+    } catch (InterruptedException | IOException e) {
+      log.error("Failed to join room", e);
+    } catch (MatrixApiException e) {
+      log.warn("Could not join room", e);
     }
+
+    return false;
   }
 
   public boolean leaveRoom(MatrixRoomId roomId) {
 
     try {
-      return api.leaveRoom(roomId.getFormatted(), "bai");
-    } catch (InterruptedException e) {
-      return false;
+      api.leaveRoom(roomId.getFormatted(), "i'm a bot");
+      return true;
+    } catch (InterruptedException | IOException e) {
+      log.error("Failed to leave room", e);
+    } catch (MatrixApiException e) {
+      log.warn("Could not leave room", e);
     }
+
+    return false;
   }
 }
