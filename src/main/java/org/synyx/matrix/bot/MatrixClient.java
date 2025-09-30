@@ -11,6 +11,7 @@ import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.MatrixAuthentication;
+import org.synyx.matrix.bot.internal.MatrixBackoffException;
 import org.synyx.matrix.bot.internal.MatrixEventNotifier;
 import org.synyx.matrix.bot.internal.MatrixStateSynchronizer;
 import org.synyx.matrix.bot.internal.api.MatrixApi;
@@ -79,6 +80,8 @@ public class MatrixClient {
         if (!authentication.isAuthenticated()) {
           try {
             api.login();
+          } catch (IOException e) {
+            throw new MatrixBackoffException("Failed to login to matrix server!", e);
           } catch (MatrixApiException e) {
             throw new MatrixCommunicationException("Failed to login to matrix server!", e);
           }
@@ -97,8 +100,8 @@ public class MatrixClient {
         try {
           syncResponse = api.syncFull()
               .orElseThrow(() -> new MatrixCommunicationException("No data in initial sync"));
-        } catch (MatrixApiException e) {
-          throw new MatrixCommunicationException("Failed to perform initial sync");
+        } catch (MatrixApiException | IOException e) {
+          throw new MatrixBackoffException("Failed to perform initial sync", e);
         }
 
         String lastBatch = syncResponse.nextBatch();
@@ -122,9 +125,8 @@ public class MatrixClient {
 
           try {
             maybePartialSyncResponse = api.sync(lastBatch);
-          } catch (MatrixApiException e) {
-            log.warn("Could not partial sync", e);
-            maybePartialSyncResponse = Optional.empty();
+          } catch (MatrixApiException | IOException e) {
+            throw new MatrixBackoffException("Could not partial sync", e);
           }
 
           if (maybePartialSyncResponse.isPresent()) {
@@ -145,8 +147,8 @@ public class MatrixClient {
           currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
         }
 
-      } catch (IOException e) {
-        log.warn("Sync failed: {}, backing off for {}s", e.getClass().getName(), currentBackoffInSec);
+      } catch (MatrixBackoffException e) {
+        log.warn("Sync failed: {}, backing off for {}s", e.getCause().getClass().getName(), currentBackoffInSec);
 
         Thread.sleep(currentBackoffInSec * 1000);
         authentication.clear();
