@@ -141,12 +141,15 @@ public class MatrixClient {
               persistedState.setLastBatch(lastBatch);
             }
           }
+
+          currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
         }
 
       } catch (IOException e) {
         log.warn("Sync failed: {}, backing off for {}s", e.getClass().getName(), currentBackoffInSec);
 
         Thread.sleep(currentBackoffInSec * 1000);
+        authentication.clear();
         currentBackoffInSec = Math.min(currentBackoffInSec * 2, BACKOFF_MAX_IN_SEC);
       }
     }
