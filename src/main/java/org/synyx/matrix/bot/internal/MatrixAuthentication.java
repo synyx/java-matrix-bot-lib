@@ -8,35 +8,41 @@ import java.util.Optional;
 
 public class MatrixAuthentication {
 
-    @Getter
-    private final String username;
-    @Getter
-    private final String password;
+  @Getter
+  private final String username;
+  @Getter
+  private final String password;
 
-    @Setter
-    private MatrixUserId userId;
-    @Setter
-    private String bearerToken;
+  @Setter
+  private MatrixUserId userId;
+  @Setter
+  private String bearerToken;
 
-    public MatrixAuthentication(String username, String password) {
+  public MatrixAuthentication(String username, String password) {
 
-        this.username = username;
-        this.password = password;
-        this.bearerToken = null;
-    }
+    this.username = username;
+    this.password = password;
+    this.bearerToken = null;
+  }
 
-    public boolean isAuthenticated() {
+  public boolean isAuthenticated() {
 
-        return bearerToken != null;
-    }
+    return bearerToken != null;
+  }
 
-    public Optional<String> getBearerToken() {
+  public void clear() {
 
-        return Optional.ofNullable(bearerToken);
-    }
+    bearerToken = null;
+    userId = null;
+  }
 
-    public Optional<MatrixUserId> getUserId() {
+  public Optional<String> getBearerToken() {
 
-        return Optional.ofNullable(userId);
-    }
+    return Optional.ofNullable(bearerToken);
+  }
+
+  public Optional<MatrixUserId> getUserId() {
+
+    return Optional.ofNullable(userId);
+  }
 }

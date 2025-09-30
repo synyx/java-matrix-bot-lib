@@ -1,160 +1,110 @@
 package org.synyx.matrix.bot;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.extern.slf4j.Slf4j;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
-import org.synyx.matrix.bot.domain.MatrixUserId;
-import org.synyx.matrix.bot.internal.MatrixAuthentication;
-import org.synyx.matrix.bot.internal.MatrixEventNotifier;
-import org.synyx.matrix.bot.internal.MatrixStateSynchronizer;
-import org.synyx.matrix.bot.internal.api.MatrixApi;
-import org.synyx.matrix.bot.internal.api.dto.MessageDto;
-import org.synyx.matrix.bot.internal.api.dto.ReactionDto;
-import org.synyx.matrix.bot.internal.api.dto.ReactionRelatesToDto;
+import org.synyx.matrix.bot.internal.MatrixClientImpl;
 
 import java.util.Optional;
 
-@Slf4j
-public class MatrixClient {
+/**
+ * An interface for a client connecting to a matrix server.
+ * Serves as the main method of communicating with the server.
+ */
+public interface MatrixClient {
 
-  private final MatrixAuthentication authentication;
-  private final ObjectMapper objectMapper;
-  private final MatrixApi api;
-  private MatrixState state;
-  private MatrixStateSynchronizer stateSynchronizer;
-  private MatrixPersistedState persistedState;
-  private MatrixEventNotifier eventNotifier;
-  private boolean interruptionRequested;
+  /**
+   * Creates a new matrix client to connect to the specified server.
+   *
+   * @param url      The url for connecting to the intended matrix server. Must start with http:// or https://
+   * @param username The username for logging into the matrix server.
+   * @param password The password for logging into the matrix server.
+   * @return A {@link MatrixClient} implementation that connects to the specified matrix server.
+   */
+  static MatrixClient create(String url, String username, String password) {
 
-  public MatrixClient(String hostname, String username, String password) {
-
-    this.authentication = new MatrixAuthentication(username, password);
-    this.objectMapper = JsonMapper.builder()
-        .addModule(new Jdk8Module())
-        .addModule(new JavaTimeModule())
-        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        .configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true)
-        .build();
-    this.api = new MatrixApi(hostname, authentication, objectMapper);
-    this.state = null;
-    this.eventNotifier = null;
-    this.interruptionRequested = false;
+    return new MatrixClientImpl(url, username, password);
   }
 
-  public void setEventCallback(MatrixEventConsumer eventConsumer) {
+  /**
+   * Sets a consumer object that gets called on events happening on the matrix server.
+   * Only one consumer can be set at any time.
+   * Calling this method again replaces any previous event callback.
+   *
+   * @param eventConsumer The consumer to call on events.
+   */
+  void setEventCallback(MatrixEventConsumer eventConsumer);
 
-    this.eventNotifier = MatrixEventNotifier.from(objectMapper, eventConsumer).orElse(null);
-  }
+  /**
+   * Optionally provides an interface to provide the current state of the matrix client.
+   * If not provided, any startup will act like the first startup and will ignore any previously sent messages.
+   * Providing a persisted state will make the client be able to determine which events happened while offline.
+   *
+   * @param persistedState An interface for persisting the matrix client state
+   */
+  void setPersistedStateProvider(MatrixPersistedStateProvider persistedState);
 
-  public void setPersistedState(MatrixPersistedState persistedState) {
 
-    this.persistedState = persistedState;
-  }
+  /**
+   * The main matrix client event loop that continuously syncs all events happening on the matrix server to the client.
+   * This is a blocking call, so make sure to call it from a different thread if needed.
+   *
+   * @throws InterruptedException The sync has been interrupted
+   */
+  void syncContinuous() throws InterruptedException;
 
-  public void requestStopOfSync() {
+  /**
+   * Requests the matrix client to stop syncing and terminate.
+   * May be called from a different thread.
+   */
+  void requestStopOfSync();
 
-    interruptionRequested = true;
-    api.terminateOpenConnections();
-  }
 
-  public void syncContinuous() {
+  /**
+   * Returns whether the matrix client is currently connected to the server or not.
+   *
+   * @return {@code true} if the client is currently connected to the server, {@code false} otherwise.
+   */
+  boolean isConnected();
 
-    if (!authentication.isAuthenticated()) {
-      if (api.login()) {
-        log.info("Successfully logged in to matrix server as {}",
-            authentication.getUserId()
-                .map(MatrixUserId::toString)
-                .orElse("UNKNOWN")
-        );
-      } else {
-        return;
-      }
-    }
+  /**
+   * Returns the current state of the matrix client.
+   *
+   * @return A {@link MatrixState} object if currently connected to a server, {@link Optional#empty()} otherwise.
+   */
+  Optional<MatrixState> getState();
 
-    state = new MatrixState(authentication.getUserId().orElseThrow(IllegalStateException::new));
-    stateSynchronizer = new MatrixStateSynchronizer(state, objectMapper);
+  /**
+   * Attempts to send a message to the specified room.
+   *
+   * @param roomId      The id of the room to send the message to.
+   * @param messageBody The body of the message to send.
+   * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link Optional#empty()} if sending the message did not succeed.
+   */
+  Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody);
 
-    var maybeSyncResponse = api.syncFull();
-    String lastBatch;
-    if (maybeSyncResponse.isPresent()) {
-      final var syncResponse = maybeSyncResponse.get();
-      lastBatch = syncResponse.nextBatch();
+  /**
+   * Attempts to add a reaction to an event (a message of the time).
+   *
+   * @param roomId   The id of the room to send the message in.
+   * @param eventId  The id of the event to react to.
+   * @param reaction The reaction to send.
+   * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link Optional#empty()} if sending the reaction did not succeed.
+   */
+  Optional<MatrixEventId> addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction);
 
-      stateSynchronizer.synchronizeState(syncResponse);
-    } else {
-      log.error("Failed to perform initial sync");
-      return;
-    }
+  /**
+   * Attempts to join a room.
+   *
+   * @param roomId The id of the room to join.
+   * @return {@code true} if joining the room was successful, {@code false} otherwise.
+   */
+  boolean joinRoom(MatrixRoomId roomId);
 
-    if (eventNotifier != null) {
-      eventNotifier.getConsumer().onConnected(state);
-    }
-
-    if (persistedState != null) {
-      final var maybePersistedLastBatch = persistedState.getLastBatch();
-      if (maybePersistedLastBatch.isPresent()) {
-        lastBatch = maybePersistedLastBatch.get();
-      } else {
-        persistedState.setLastBatch(lastBatch);
-      }
-    }
-
-    while (!interruptionRequested) {
-      maybeSyncResponse = api.sync(lastBatch);
-      if (maybeSyncResponse.isPresent()) {
-        final var syncResponse = maybeSyncResponse.get();
-        lastBatch = syncResponse.nextBatch();
-
-        stateSynchronizer.synchronizeState(syncResponse);
-
-        if (eventNotifier != null) {
-          eventNotifier.notifyFromSynchronizationResponse(state, syncResponse);
-        }
-
-        if (persistedState != null) {
-          persistedState.setLastBatch(lastBatch);
-        }
-      }
-    }
-
-    interruptionRequested = false;
-  }
-
-  public boolean isConnected() {
-
-    return state != null;
-  }
-
-  public Optional<MatrixState> getState() {
-
-    return Optional.ofNullable(state);
-  }
-
-  public boolean sendMessage(MatrixRoomId roomId, String messageBody) {
-
-    return api.sendEvent(roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text"));
-  }
-
-  public boolean addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
-
-    final var reactionDto = new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
-    return api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto);
-  }
-
-  public boolean joinRoom(MatrixRoomId roomId) {
-
-    return api.joinRoom(roomId.getFormatted(), "hello there");
-  }
-
-  public boolean leaveRoom(MatrixRoomId roomId) {
-
-    return api.leaveRoom(roomId.getFormatted(), "bai");
-  }
+  /**
+   * Attempts to leave a room.
+   *
+   * @param roomId The id of the room to leave.
+   * @return {@code true} if leaving the room was successful, {@code false} otherwise.
+   */
+  boolean leaveRoom(MatrixRoomId roomId);
 }
