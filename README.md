@@ -33,27 +33,27 @@ then you can add `java-matrix-bot-lib` as a dependency:
 ```java
 public class MyMatrixBot implements MatrixEventConsumer {
 
-    private MatrixClient matrixClient;
+  private MatrixClient matrixClient;
 
-    public MyMatrixBot() {
+  public MyMatrixBot() {
 
-        MatrixClient matrixClient = new MatrixClient("https://matrix.example.com", "username", "password");
-        matrixClient.setPersistedState(matrixStatePersistence);
-    }
+    MatrixClient matrixClient = MatrixClient.create("https://matrix.example.com", "username", "password");
+    matrixClient.setPersistedState(matrixStatePersistence);
+  }
 
-    public void startBot() {
-        // Blocks the thread
-        matrixClient.syncContinuous();
-    }
+  public void startBot() {
+    // Blocks the thread
+    matrixClient.syncContinuous();
+  }
 
-    public void stopBot() {
+  public void stopBot() {
 
-        matrixClient.requestStopOfSync();
-    }
+    matrixClient.requestStopOfSync();
+  }
 
-    @Override
-    public void onMessage(MatrixState state, MatrixRoom room, MatrixMessage message) {
-        // ...
-    }
+  @Override
+  public void onMessage(MatrixState state, MatrixRoom room, MatrixMessage message) {
+    // ...
+  }
 }
 ```
