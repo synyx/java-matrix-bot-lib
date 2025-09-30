@@ -35,7 +35,7 @@ public class MatrixClient {
   private final MatrixApi api;
   private MatrixState state;
   private MatrixStateSynchronizer stateSynchronizer;
-  private MatrixPersistedState persistedState;
+  private MatrixPersistedStateProvider persistedState;
   private MatrixEventNotifier eventNotifier;
   private boolean interruptionRequested;
   private long currentBackoffInSec;
@@ -57,22 +57,46 @@ public class MatrixClient {
     this.currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
   }
 
+  /**
+   * Sets a consumer object that gets called on events happening on the matrix server.
+   * Only one consumer can be set at any time.
+   * Calling this method again replaces any previous event callback.
+   *
+   * @param eventConsumer The consumer to call on events.
+   */
   public void setEventCallback(MatrixEventConsumer eventConsumer) {
 
     this.eventNotifier = MatrixEventNotifier.from(objectMapper, eventConsumer).orElse(null);
   }
 
-  public void setPersistedState(MatrixPersistedState persistedState) {
+  /**
+   * Optionally provides an interface to provide the current state of the matrix client.
+   * If not provided, any startup will act like the first startup and will ignore any previously sent messages.
+   * Providing a persisted state will make the client be able to determine which events happened while offline.
+   *
+   * @param persistedState An interface for persisting the matrix client state
+   */
+  public void setPersistedStateProvider(MatrixPersistedStateProvider persistedState) {
 
     this.persistedState = persistedState;
   }
 
+  /**
+   * Requests the matrix client to stop syncing and terminate.
+   * May be called from a different thread.
+   */
   public void requestStopOfSync() {
 
     interruptionRequested = true;
     api.terminateOpenConnections();
   }
 
+  /**
+   * The main matrix client event loop that continuously syncs all events happening on the matrix server to the client.
+   * This is a blocking call, so make sure to call it from a different thread if needed.
+   *
+   * @throws InterruptedException The sync has been interrupted
+   */
   public void syncContinuous() throws InterruptedException {
 
     while (!interruptionRequested) {
@@ -150,26 +174,50 @@ public class MatrixClient {
       } catch (MatrixBackoffException e) {
         log.warn("Sync failed: {}, backing off for {}s", e.getCause().getClass().getName(), currentBackoffInSec);
 
+        clearSyncState();
         Thread.sleep(currentBackoffInSec * 1000);
-        authentication.clear();
         currentBackoffInSec = Math.min(currentBackoffInSec * 2, BACKOFF_MAX_IN_SEC);
       }
     }
 
+    clearSyncState();
     interruptionRequested = false;
     currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
   }
 
+  private void clearSyncState() {
+
+    authentication.clear();
+    state = null;
+  }
+
+  /**
+   * Returns whether the matrix client is currently connected to the server or not.
+   *
+   * @return {@code true} if the client is currently connected to the server, {@code false} otherwise.
+   */
   public boolean isConnected() {
 
     return state != null;
   }
 
+  /**
+   * Returns the current state of the matrix client.
+   *
+   * @return A {@link MatrixState} object if currently connected to a server, {@link Optional#empty()} otherwise.
+   */
   public Optional<MatrixState> getState() {
 
     return Optional.ofNullable(state);
   }
 
+  /**
+   * Attempts to send a message to the specified room.
+   *
+   * @param roomId      The id of the room to send the message to.
+   * @param messageBody The body of the message to send.
+   * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link Optional#empty()} if sending the message did not succeed.
+   */
   public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
 
     try {
@@ -185,6 +233,14 @@ public class MatrixClient {
     return Optional.empty();
   }
 
+  /**
+   * Attempts to add a reaction to an event (a message of the time).
+   *
+   * @param roomId   The id of the room to send the message in.
+   * @param eventId  The id of the event to react to.
+   * @param reaction The reaction to send.
+   * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link Optional#empty()} if sending the reaction did not succeed.
+   */
   public Optional<MatrixEventId> addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
 
     final var reactionDto = new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
@@ -201,6 +257,12 @@ public class MatrixClient {
     return Optional.empty();
   }
 
+  /**
+   * Attempts to join a room.
+   *
+   * @param roomId The id of the room to join.
+   * @return {@code true} if joining the room was successful, {@code false} otherwise.
+   */
   public boolean joinRoom(MatrixRoomId roomId) {
 
     try {
@@ -215,6 +277,12 @@ public class MatrixClient {
     return false;
   }
 
+  /**
+   * Attempts to leave a room.
+   *
+   * @param roomId The id of the room to leave.
+   * @return {@code true} if leaving the room was successful, {@code false} otherwise.
+   */
   public boolean leaveRoom(MatrixRoomId roomId) {
 
     try {
