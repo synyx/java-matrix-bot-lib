@@ -39,10 +39,10 @@ public class MatrixApi {
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
 
-  public MatrixApi(String hostname, MatrixAuthentication authentication, ObjectMapper objectMapper) {
+  public MatrixApi(String url, MatrixAuthentication authentication, ObjectMapper objectMapper) {
 
     try {
-      this.baseUri = new URI(hostname);
+      this.baseUri = new URI(url);
     } catch (URISyntaxException e) {
       throw new MatrixCommunicationException("Invalid matrix URI", e);
     }

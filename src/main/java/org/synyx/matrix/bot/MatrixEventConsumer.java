@@ -5,13 +5,14 @@ import org.synyx.matrix.bot.domain.MatrixRoom;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixRoomInvite;
 import org.synyx.matrix.bot.domain.MatrixUserId;
+import org.synyx.matrix.bot.internal.MatrixClientImpl;
 
 /**
  * An interface providing callbacks for things happening on the matrix server that were received by the client.
  * All methods have a default implementation that does nothing, so implementing classes only need to override whatever
  * they want to listen to.
  * <p>
- * Any reactions to events happening shall be performed using the appropriate {@link MatrixClient} instance.
+ * Any reactions to events happening shall be performed using the appropriate {@link MatrixClientImpl} instance.
  */
 public interface MatrixEventConsumer {
 
