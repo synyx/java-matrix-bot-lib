@@ -21,13 +21,17 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
 public class MatrixApi {
 
-  private static final int SYNC_TIMEOUT = 30_000;
+  private static final Duration SYNC_TIMEOUT = Duration.of(30, ChronoUnit.SECONDS);
+  private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.of(30, ChronoUnit.SECONDS);
+  private static final Duration SYNC_REQUEST_TIMEOUT = Duration.of((long) (SYNC_TIMEOUT.toMillis() * 1.5D), ChronoUnit.MILLIS);
 
   private final URI baseUri;
   private final MatrixAuthentication authentication;
@@ -84,10 +88,10 @@ public class MatrixApi {
           get(
               "/_matrix/client/v3/sync",
               "timeout=%d&since=%s".formatted(
-                  SYNC_TIMEOUT,
+                  SYNC_TIMEOUT.toMillis(),
                   URLEncoder.encode(since, StandardCharsets.UTF_8)
               )
-          ).build(),
+          ).timeout(SYNC_REQUEST_TIMEOUT).build(),
           jsonBodyHandler(SyncResponseDto.class)
       );
 
@@ -198,7 +202,8 @@ public class MatrixApi {
 
     HttpRequest.Builder builder;
     try {
-      builder = HttpRequest.newBuilder(new URI(baseUri.getScheme(), null, baseUri.getHost(), baseUri.getPort(), url, query, null));
+      builder = HttpRequest.newBuilder(new URI(baseUri.getScheme(), null, baseUri.getHost(), baseUri.getPort(), url, query, null))
+          .timeout(DEFAULT_REQUEST_TIMEOUT);
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
