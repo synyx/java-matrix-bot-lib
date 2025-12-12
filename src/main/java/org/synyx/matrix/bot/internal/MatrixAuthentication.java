@@ -1,8 +1,7 @@
 package org.synyx.matrix.bot.internal;
 
-import org.synyx.matrix.bot.domain.MatrixUserId;
-
 import java.util.Optional;
+import org.synyx.matrix.bot.domain.MatrixUserId;
 
 public class MatrixAuthentication {
 

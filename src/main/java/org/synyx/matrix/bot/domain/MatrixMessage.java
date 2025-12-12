@@ -2,11 +2,11 @@ package org.synyx.matrix.bot.domain;
 
 public interface MatrixMessage {
 
-    MatrixEventId getEventId();
+  MatrixEventId getEventId();
 
-    String getBody();
+  String getBody();
 
-    MatrixUserId getSender();
+  MatrixUserId getSender();
 
-    MatrixMessageType getType();
+  MatrixMessageType getType();
 }

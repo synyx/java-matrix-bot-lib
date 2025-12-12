@@ -6,59 +6,59 @@ import java.util.regex.Pattern;
 
 public class MatrixEventId {
 
-    /*
-    https://spec.matrix.org/v1.14/appendices/#event-ids
-     */
-    private static final Pattern EVENT_ID_PATTERN = Pattern.compile("^\\$(.+)$");
+  /*
+  https://spec.matrix.org/v1.14/appendices/#event-ids
+   */
+  private static final Pattern EVENT_ID_PATTERN = Pattern.compile("^\\$(.+)$");
 
-    private final String opaqueId;
+  private final String opaqueId;
 
-    private MatrixEventId(String opaqueId) {
+  private MatrixEventId(String opaqueId) {
 
-        this.opaqueId = opaqueId;
+    this.opaqueId = opaqueId;
+  }
+
+  public static Optional<MatrixEventId> from(String value) {
+
+    final var matcher = EVENT_ID_PATTERN.matcher(value);
+    if (!matcher.matches()) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixEventId> from(String value) {
+    final var opaqueId = matcher.group(1);
 
-        final var matcher = EVENT_ID_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
+    return Optional.of(new MatrixEventId(opaqueId));
+  }
 
-        final var opaqueId = matcher.group(1);
+  public String getOpaqueId() {
 
-        return Optional.of(new MatrixEventId(opaqueId));
+    return opaqueId;
+  }
+
+  public String getFormatted() {
+
+    return "$%s".formatted(opaqueId);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+
+    if (o == null || getClass() != o.getClass()) {
+      return false;
     }
+    MatrixEventId that = (MatrixEventId) o;
+    return Objects.equals(opaqueId, that.opaqueId);
+  }
 
-    public String getOpaqueId() {
+  @Override
+  public int hashCode() {
 
-        return opaqueId;
-    }
+    return Objects.hashCode(opaqueId);
+  }
 
-    public String getFormatted() {
+  @Override
+  public String toString() {
 
-        return "$%s".formatted(opaqueId);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MatrixEventId that = (MatrixEventId) o;
-        return Objects.equals(opaqueId, that.opaqueId);
-    }
-
-    @Override
-    public int hashCode() {
-
-        return Objects.hashCode(opaqueId);
-    }
-
-    @Override
-    public String toString() {
-
-        return getFormatted();
-    }
+    return getFormatted();
+  }
 }

@@ -6,68 +6,68 @@ import java.util.regex.Pattern;
 
 public class MatrixUserId {
 
-    /*
-    While newer user IDs follow a stricter pattern, historical IDs are more lenient:
-    https://spec.matrix.org/v1.14/appendices/#user-identifiers
-     */
-    private static final Pattern USER_ID_PATTERN = Pattern.compile("^@([^:\\x00]+):(.+)$");
+  /*
+  While newer user IDs follow a stricter pattern, historical IDs are more lenient:
+  https://spec.matrix.org/v1.14/appendices/#user-identifiers
+   */
+  private static final Pattern USER_ID_PATTERN = Pattern.compile("^@([^:\\x00]+):(.+)$");
 
-    private final String localPart;
-    private final String domain;
+  private final String localPart;
+  private final String domain;
 
-    private MatrixUserId(String localPart, String domain) {
+  private MatrixUserId(String localPart, String domain) {
 
-        this.localPart = localPart;
-        this.domain = domain;
+    this.localPart = localPart;
+    this.domain = domain;
+  }
+
+  public static Optional<MatrixUserId> from(String value) {
+
+    final var matcher = USER_ID_PATTERN.matcher(value);
+    if (!matcher.matches()) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixUserId> from(String value) {
+    final var localPart = matcher.group(1);
+    final var domain = matcher.group(2);
 
-        final var matcher = USER_ID_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
+    return Optional.of(new MatrixUserId(localPart, domain));
+  }
 
-        final var localPart = matcher.group(1);
-        final var domain = matcher.group(2);
+  public String getLocalPart() {
 
-        return Optional.of(new MatrixUserId(localPart, domain));
+    return localPart;
+  }
+
+  public String getDomain() {
+
+    return domain;
+  }
+
+  public String getFormatted() {
+
+    return "@%s:%s".formatted(localPart, domain);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+
+    if (o == null || getClass() != o.getClass()) {
+      return false;
     }
+    MatrixUserId that = (MatrixUserId) o;
+    return Objects.equals(localPart, that.localPart) && Objects.equals(domain, that.domain);
+  }
 
-    public String getLocalPart() {
+  @Override
+  public int hashCode() {
 
-        return localPart;
-    }
+    return Objects.hash(localPart, domain);
+  }
 
-    public String getDomain() {
+  @Override
+  public String toString() {
 
-        return domain;
-    }
-
-    public String getFormatted() {
-
-        return "@%s:%s".formatted(localPart, domain);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MatrixUserId that = (MatrixUserId) o;
-        return Objects.equals(localPart, that.localPart) && Objects.equals(domain, that.domain);
-    }
-
-    @Override
-    public int hashCode() {
-
-        return Objects.hash(localPart, domain);
-    }
-
-    @Override
-    public String toString() {
-
-        return getFormatted();
-    }
+    return getFormatted();
+  }
 }

@@ -4,36 +4,36 @@ import java.util.Optional;
 
 public class MatrixUser {
 
-    private final MatrixUserId id;
-    private String displayName;
+  private final MatrixUserId id;
+  private String displayName;
 
-    private MatrixUser(MatrixUserId id) {
+  private MatrixUser(MatrixUserId id) {
 
-        this.id = id;
-        this.displayName = null;
+    this.id = id;
+    this.displayName = null;
+  }
+
+  public static Optional<MatrixUser> from(MatrixUserId id) {
+
+    if (id == null) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixUser> from(MatrixUserId id) {
+    return Optional.of(new MatrixUser(id));
+  }
 
-        if (id == null) {
-            return Optional.empty();
-        }
+  public MatrixUserId getId() {
 
-        return Optional.of(new MatrixUser(id));
-    }
+    return id;
+  }
 
-    public MatrixUserId getId() {
+  public Optional<String> getDisplayName() {
 
-        return id;
-    }
+    return Optional.ofNullable(displayName);
+  }
 
-    public Optional<String> getDisplayName() {
+  public void setDisplayName(String displayName) {
 
-        return Optional.ofNullable(displayName);
-    }
-
-    public void setDisplayName(String displayName) {
-
-        this.displayName = displayName;
-    }
+    this.displayName = displayName;
+  }
 }

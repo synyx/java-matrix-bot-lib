@@ -12,6 +12,7 @@ public class MatrixApiException extends Exception {
 
   public MatrixApiException(String performedAction, IOException ioException) {
 
-    super("%s failed - %s".formatted(performedAction, ioException.getClass().getName()), ioException);
+    super(
+        "%s failed - %s".formatted(performedAction, ioException.getClass().getName()), ioException);
   }
 }

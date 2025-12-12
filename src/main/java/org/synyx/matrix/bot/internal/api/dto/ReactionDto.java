@@ -1,14 +1,11 @@
 package org.synyx.matrix.bot.internal.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 public class ReactionDto {
 
-  public ReactionDto() {
-
-  }
+  public ReactionDto() {}
 
   public ReactionDto(ReactionRelatesToDto relatesTo) {
 
@@ -47,8 +44,6 @@ public class ReactionDto {
   @Override
   public String toString() {
 
-    return "ReactionDto{" +
-        "relatesTo=" + relatesTo +
-        '}';
+    return "ReactionDto{" + "relatesTo=" + relatesTo + '}';
   }
 }
