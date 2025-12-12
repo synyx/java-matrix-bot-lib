@@ -6,67 +6,67 @@ import java.util.regex.Pattern;
 
 public class MatrixRoomId {
 
-    /*
-    https://spec.matrix.org/v1.14/appendices/#room-ids
-     */
-    private static final Pattern ROOM_ID_PATTERN = Pattern.compile("^!([^:\\x00]+):(.+)$");
+  /*
+  https://spec.matrix.org/v1.14/appendices/#room-ids
+   */
+  private static final Pattern ROOM_ID_PATTERN = Pattern.compile("^!([^:\\x00]+):(.+)$");
 
-    private final String opaqueId;
-    private final String domain;
+  private final String opaqueId;
+  private final String domain;
 
-    private MatrixRoomId(String opaqueId, String domain) {
+  private MatrixRoomId(String opaqueId, String domain) {
 
-        this.opaqueId = opaqueId;
-        this.domain = domain;
+    this.opaqueId = opaqueId;
+    this.domain = domain;
+  }
+
+  public static Optional<MatrixRoomId> from(String value) {
+
+    final var matcher = ROOM_ID_PATTERN.matcher(value);
+    if (!matcher.matches()) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixRoomId> from(String value) {
+    final var opaqueId = matcher.group(1);
+    final var domain = matcher.group(2);
 
-        final var matcher = ROOM_ID_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
+    return Optional.of(new MatrixRoomId(opaqueId, domain));
+  }
 
-        final var opaqueId = matcher.group(1);
-        final var domain = matcher.group(2);
+  public String getOpaqueId() {
 
-        return Optional.of(new MatrixRoomId(opaqueId, domain));
+    return opaqueId;
+  }
+
+  public String getDomain() {
+
+    return domain;
+  }
+
+  public String getFormatted() {
+
+    return "!%s:%s".formatted(opaqueId, domain);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+
+    if (o == null || getClass() != o.getClass()) {
+      return false;
     }
+    MatrixRoomId that = (MatrixRoomId) o;
+    return Objects.equals(opaqueId, that.opaqueId) && Objects.equals(domain, that.domain);
+  }
 
-    public String getOpaqueId() {
+  @Override
+  public int hashCode() {
 
-        return opaqueId;
-    }
+    return Objects.hash(opaqueId, domain);
+  }
 
-    public String getDomain() {
+  @Override
+  public String toString() {
 
-        return domain;
-    }
-
-    public String getFormatted() {
-
-        return "!%s:%s".formatted(opaqueId, domain);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MatrixRoomId that = (MatrixRoomId) o;
-        return Objects.equals(opaqueId, that.opaqueId) && Objects.equals(domain, that.domain);
-    }
-
-    @Override
-    public int hashCode() {
-
-        return Objects.hash(opaqueId, domain);
-    }
-
-    @Override
-    public String toString() {
-
-        return getFormatted();
-    }
+    return getFormatted();
+  }
 }

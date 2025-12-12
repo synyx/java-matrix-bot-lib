@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.io.IOException;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixClient;
@@ -22,9 +24,6 @@ import org.synyx.matrix.bot.internal.api.dto.MessageDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionRelatesToDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
-
-import java.io.IOException;
-import java.util.Optional;
 
 public class MatrixClientImpl implements MatrixClient {
 
@@ -46,13 +45,14 @@ public class MatrixClientImpl implements MatrixClient {
   public MatrixClientImpl(String url, String username, String password) {
 
     this.authentication = new MatrixAuthentication(username, password);
-    this.objectMapper = JsonMapper.builder()
-        .addModule(new Jdk8Module())
-        .addModule(new JavaTimeModule())
-        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        .configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true)
-        .build();
+    this.objectMapper =
+        JsonMapper.builder()
+            .addModule(new Jdk8Module())
+            .addModule(new JavaTimeModule())
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true)
+            .build();
     this.api = new MatrixApi(url, authentication, objectMapper);
     this.state = null;
     this.eventNotifier = null;
@@ -86,11 +86,9 @@ public class MatrixClientImpl implements MatrixClient {
             throw new MatrixCommunicationException("Failed to login to matrix server!", e);
           }
 
-          LOG.info("Successfully logged in to matrix server as {}",
-              authentication.getUserId()
-                  .map(MatrixUserId::toString)
-                  .orElse("UNKNOWN")
-          );
+          LOG.info(
+              "Successfully logged in to matrix server as {}",
+              authentication.getUserId().map(MatrixUserId::toString).orElse("UNKNOWN"));
         }
 
         state = new MatrixState(authentication.getUserId().orElseThrow(IllegalStateException::new));
@@ -98,8 +96,9 @@ public class MatrixClientImpl implements MatrixClient {
 
         SyncResponseDto syncResponse;
         try {
-          syncResponse = api.syncFull()
-              .orElseThrow(() -> new MatrixCommunicationException("No data in initial sync"));
+          syncResponse =
+              api.syncFull()
+                  .orElseThrow(() -> new MatrixCommunicationException("No data in initial sync"));
         } catch (MatrixApiException | IOException e) {
           throw new MatrixBackoffException("Failed to perform initial sync", e);
         }
@@ -148,7 +147,10 @@ public class MatrixClientImpl implements MatrixClient {
         }
 
       } catch (MatrixBackoffException e) {
-        LOG.warn("Sync failed: {}, backing off for {}s", e.getCause().getClass().getName(), currentBackoffInSec);
+        LOG.warn(
+            "Sync failed: {}, backing off for {}s",
+            e.getCause().getClass().getName(),
+            currentBackoffInSec);
 
         clearSyncState();
         Thread.sleep(currentBackoffInSec * 1000);
@@ -191,8 +193,8 @@ public class MatrixClientImpl implements MatrixClient {
 
     try {
       return MatrixEventId.from(
-          api.sendEvent(roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text"))
-      );
+          api.sendEvent(
+              roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text")));
     } catch (InterruptedException | IOException e) {
       LOG.error("Failed to send message", e);
     } catch (MatrixApiException e) {
@@ -203,13 +205,13 @@ public class MatrixClientImpl implements MatrixClient {
   }
 
   @Override
-  public Optional<MatrixEventId> addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
+  public Optional<MatrixEventId> addReaction(
+      MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
 
-    final var reactionDto = new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
+    final var reactionDto =
+        new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
     try {
-      return MatrixEventId.from(
-          api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto)
-      );
+      return MatrixEventId.from(api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto));
     } catch (InterruptedException | IOException e) {
       LOG.error("Failed to add reaction", e);
     } catch (MatrixApiException e) {

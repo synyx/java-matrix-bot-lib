@@ -4,37 +4,31 @@ import java.util.Optional;
 
 public class MatrixRoomInvite {
 
-    private final MatrixRoom room;
-    private final MatrixUser invitedBy;
+  private final MatrixRoom room;
+  private final MatrixUser invitedBy;
 
-    private MatrixRoomInvite(MatrixRoom room, MatrixUser invitedBy) {
+  private MatrixRoomInvite(MatrixRoom room, MatrixUser invitedBy) {
 
-        this.room = room;
-        this.invitedBy = invitedBy;
+    this.room = room;
+    this.invitedBy = invitedBy;
+  }
+
+  public static Optional<MatrixRoomInvite> from(MatrixRoom room, MatrixUser invitedBy) {
+
+    if (room == null) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixRoomInvite> from(
-            MatrixRoom room,
-            MatrixUser invitedBy
-    ) {
+    return Optional.of(new MatrixRoomInvite(room, invitedBy));
+  }
 
-        if (room == null) {
-            return Optional.empty();
-        }
+  public MatrixRoom getRoom() {
 
-        return Optional.of(new MatrixRoomInvite(
-                room,
-                invitedBy
-        ));
-    }
+    return room;
+  }
 
-    public MatrixRoom getRoom() {
+  public Optional<MatrixUser> getInvitedBy() {
 
-        return room;
-    }
-
-    public Optional<MatrixUser> getInvitedBy() {
-
-        return Optional.ofNullable(invitedBy);
-    }
+    return Optional.ofNullable(invitedBy);
+  }
 }

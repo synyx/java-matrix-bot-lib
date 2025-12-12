@@ -4,55 +4,48 @@ import java.util.Optional;
 
 public class MatrixNoticeMessage implements MatrixMessage {
 
-    private final MatrixEventId eventId;
-    private final String body;
-    private final MatrixUserId sender;
+  private final MatrixEventId eventId;
+  private final String body;
+  private final MatrixUserId sender;
 
-    private MatrixNoticeMessage(MatrixEventId eventId, String body, MatrixUserId sender) {
+  private MatrixNoticeMessage(MatrixEventId eventId, String body, MatrixUserId sender) {
 
-        this.eventId = eventId;
-        this.body = body;
-        this.sender = sender;
+    this.eventId = eventId;
+    this.body = body;
+    this.sender = sender;
+  }
+
+  public static Optional<MatrixNoticeMessage> from(
+      MatrixEventId eventId, String body, MatrixUserId sender) {
+
+    if (eventId == null || body == null || sender == null) {
+      return Optional.empty();
     }
 
-    public static Optional<MatrixNoticeMessage> from(
-            MatrixEventId eventId,
-            String body,
-            MatrixUserId sender
-    ) {
+    return Optional.of(new MatrixNoticeMessage(eventId, body, sender));
+  }
 
-        if (eventId == null || body == null || sender == null) {
-            return Optional.empty();
-        }
+  @Override
+  public MatrixEventId getEventId() {
 
-        return Optional.of(new MatrixNoticeMessage(
-                eventId,
-                body,
-                sender
-        ));
-    }
+    return eventId;
+  }
 
-    @Override
-    public MatrixEventId getEventId() {
+  @Override
+  public String getBody() {
 
-        return eventId;
-    }
+    return body;
+  }
 
-    @Override
-    public String getBody() {
+  @Override
+  public MatrixUserId getSender() {
 
-        return body;
-    }
+    return sender;
+  }
 
-    @Override
-    public MatrixUserId getSender() {
+  @Override
+  public MatrixMessageType getType() {
 
-        return sender;
-    }
-
-    @Override
-    public MatrixMessageType getType() {
-
-        return MatrixMessageType.NOTICE;
-    }
+    return MatrixMessageType.NOTICE;
+  }
 }
