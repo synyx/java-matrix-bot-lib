@@ -49,3 +49,19 @@ publishing {
         }
     }
 }
+
+spotless {
+    groovyGradle {
+        greclipse()
+        trimTrailingWhitespace()
+        leadingTabsToSpaces(2)
+        endWithNewline()
+    }
+    java {
+        googleJavaFormat('1.33.0').reflowLongStrings()
+        importOrder()
+        removeUnusedImports()
+        forbidWildcardImports()
+        formatAnnotations()
+    }
+}
