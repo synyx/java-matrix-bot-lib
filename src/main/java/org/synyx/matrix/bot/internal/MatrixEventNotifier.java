@@ -2,10 +2,8 @@ package org.synyx.matrix.bot.internal;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixEventConsumer;
 import org.synyx.matrix.bot.MatrixState;
 import org.synyx.matrix.bot.domain.MatrixEmoteMessage;
@@ -28,13 +26,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Slf4j
 public class MatrixEventNotifier {
 
+    private static final Logger LOG = LoggerFactory.getLogger(MatrixEventNotifier.class);
+
     private final ObjectMapper objectMapper;
-    @Getter
     private final MatrixEventConsumer consumer;
+
+    private MatrixEventNotifier(ObjectMapper objectMapper, MatrixEventConsumer consumer) {
+
+        this.objectMapper = objectMapper;
+        this.consumer = consumer;
+    }
 
     public static Optional<MatrixEventNotifier> from(ObjectMapper objectMapper, MatrixEventConsumer consumer) {
 
@@ -43,6 +46,11 @@ public class MatrixEventNotifier {
         }
 
         return Optional.of(new MatrixEventNotifier(objectMapper, consumer));
+    }
+
+    public MatrixEventConsumer getConsumer() {
+
+        return consumer;
     }
 
     public void notifyFromSynchronizationResponse(MatrixState state, SyncResponseDto syncResponse) {
@@ -106,7 +114,7 @@ public class MatrixEventNotifier {
             try {
                 consumer.onSelfLeaveRoom(state, roomId);
             } catch (Exception e) {
-                log.error("Uncaught exception when consuming room leave", e);
+                LOG.error("Uncaught exception when consuming room leave", e);
             }
         }
     }
@@ -133,7 +141,7 @@ public class MatrixEventNotifier {
         }
 
         if (content.messageType() == null || content.body() == null) {
-            log.error("Could not notify about invalid message: {}", event);
+            LOG.error("Could not notify about invalid message: {}", event);
             return;
         }
 
@@ -155,7 +163,7 @@ public class MatrixEventNotifier {
                     .filter(message -> message.getType() != MatrixMessageType.NOTICE)
                     .ifPresent(message -> consumer.onMessage(state, room, message));
         } catch (Exception e) {
-            log.error("Uncaught exception when consuming message", e);
+            LOG.error("Uncaught exception when consuming message", e);
         }
     }
 
@@ -178,7 +186,7 @@ public class MatrixEventNotifier {
                 consumer.onUserJoinRoom(state, room, sender);
             }
         } catch (Exception e) {
-            log.error("Uncaught exception when consuming member event", e);
+            LOG.error("Uncaught exception when consuming member event", e);
         }
     }
 
@@ -212,7 +220,7 @@ public class MatrixEventNotifier {
         try {
             consumer.onInviteToRoom(state, roomInvite);
         } catch (Exception e) {
-            log.error("Uncaught exception when consuming room invite", e);
+            LOG.error("Uncaught exception when consuming room invite", e);
         }
     }
 }

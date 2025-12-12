@@ -1,18 +1,17 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
 import java.util.Optional;
 
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixRoomInvite {
 
-    @Getter
     private final MatrixRoom room;
-
     private final MatrixUser invitedBy;
+
+    private MatrixRoomInvite(MatrixRoom room, MatrixUser invitedBy) {
+
+        this.room = room;
+        this.invitedBy = invitedBy;
+    }
 
     public static Optional<MatrixRoomInvite> from(
             MatrixRoom room,
@@ -27,6 +26,11 @@ public class MatrixRoomInvite {
                 room,
                 invitedBy
         ));
+    }
+
+    public MatrixRoom getRoom() {
+
+        return room;
     }
 
     public Optional<MatrixUser> getInvitedBy() {

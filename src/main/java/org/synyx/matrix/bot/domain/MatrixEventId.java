@@ -1,15 +1,9 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@EqualsAndHashCode
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixEventId {
 
     /*
@@ -17,8 +11,12 @@ public class MatrixEventId {
      */
     private static final Pattern EVENT_ID_PATTERN = Pattern.compile("^\\$(.+)$");
 
-    @Getter
     private final String opaqueId;
+
+    private MatrixEventId(String opaqueId) {
+
+        this.opaqueId = opaqueId;
+    }
 
     public static Optional<MatrixEventId> from(String value) {
 
@@ -32,9 +30,30 @@ public class MatrixEventId {
         return Optional.of(new MatrixEventId(opaqueId));
     }
 
+    public String getOpaqueId() {
+
+        return opaqueId;
+    }
+
     public String getFormatted() {
 
         return "$%s".formatted(opaqueId);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MatrixEventId that = (MatrixEventId) o;
+        return Objects.equals(opaqueId, that.opaqueId);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hashCode(opaqueId);
     }
 
     @Override

@@ -1,6 +1,5 @@
 package org.synyx.matrix.bot;
 
-import lombok.Getter;
 import org.synyx.matrix.bot.domain.MatrixRoom;
 import org.synyx.matrix.bot.domain.MatrixRoomAlias;
 import org.synyx.matrix.bot.domain.MatrixUserId;
@@ -11,13 +10,8 @@ import java.util.Optional;
 
 public class MatrixState {
 
-    @Getter
     private final MatrixUserId ownUserId;
-
-    @Getter
     private final List<MatrixRoom> invitedRooms;
-
-    @Getter
     private final List<MatrixRoom> joinedRooms;
 
     public MatrixState(MatrixUserId ownUserId) {
@@ -25,6 +19,18 @@ public class MatrixState {
         this.ownUserId = ownUserId;
         this.invitedRooms = new ArrayList<>();
         this.joinedRooms = new ArrayList<>();
+    }
+
+    public MatrixUserId getOwnUserId() {
+      return ownUserId;
+    }
+
+    public List<MatrixRoom> getInvitedRooms() {
+      return invitedRooms;
+    }
+
+    public List<MatrixRoom> getJoinedRooms() {
+      return joinedRooms;
     }
 
     public Optional<MatrixRoom> findJoinedRoomByCanonicalAlias(MatrixRoomAlias alias) {

@@ -1,16 +1,18 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-
 import java.util.Optional;
 
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixEmoteMessage implements MatrixMessage {
 
     private final MatrixEventId eventId;
     private final String body;
     private final MatrixUserId sender;
+
+    private MatrixEmoteMessage(MatrixEventId eventId, String body, MatrixUserId sender) {
+        this.eventId = eventId;
+        this.body = body;
+        this.sender = sender;
+    }
 
     public static Optional<MatrixEmoteMessage> from(
             MatrixEventId eventId,
