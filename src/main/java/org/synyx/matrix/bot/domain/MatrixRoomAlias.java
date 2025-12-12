@@ -1,15 +1,9 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@EqualsAndHashCode
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixRoomAlias {
 
     /*
@@ -17,10 +11,14 @@ public class MatrixRoomAlias {
      */
     private static final Pattern ROOM_ALIAS_PATTERN = Pattern.compile("^#([^:\\x00]+):(.+)$");
 
-    @Getter
     private final String localPart;
-    @Getter
     private final String domain;
+
+    private MatrixRoomAlias(String localPart, String domain) {
+
+        this.localPart = localPart;
+        this.domain = domain;
+    }
 
     public static Optional<MatrixRoomAlias> from(String value) {
 
@@ -40,9 +38,35 @@ public class MatrixRoomAlias {
         return from("#%s:%s".formatted(localPart, domain));
     }
 
+    public String getLocalPart() {
+
+        return localPart;
+    }
+
+    public String getDomain() {
+
+        return domain;
+    }
+
     public String getFormatted() {
 
         return "#%s:%s".formatted(localPart, domain);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MatrixRoomAlias that = (MatrixRoomAlias) o;
+        return Objects.equals(localPart, that.localPart) && Objects.equals(domain, that.domain);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(localPart, domain);
     }
 
     @Override

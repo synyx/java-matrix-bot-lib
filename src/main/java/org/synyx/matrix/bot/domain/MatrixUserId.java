@@ -1,15 +1,9 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@EqualsAndHashCode
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixUserId {
 
     /*
@@ -18,10 +12,14 @@ public class MatrixUserId {
      */
     private static final Pattern USER_ID_PATTERN = Pattern.compile("^@([^:\\x00]+):(.+)$");
 
-    @Getter
     private final String localPart;
-    @Getter
     private final String domain;
+
+    private MatrixUserId(String localPart, String domain) {
+
+        this.localPart = localPart;
+        this.domain = domain;
+    }
 
     public static Optional<MatrixUserId> from(String value) {
 
@@ -36,9 +34,35 @@ public class MatrixUserId {
         return Optional.of(new MatrixUserId(localPart, domain));
     }
 
+    public String getLocalPart() {
+
+        return localPart;
+    }
+
+    public String getDomain() {
+
+        return domain;
+    }
+
     public String getFormatted() {
 
         return "@%s:%s".formatted(localPart, domain);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MatrixUserId that = (MatrixUserId) o;
+        return Objects.equals(localPart, that.localPart) && Objects.equals(domain, that.domain);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(localPart, domain);
     }
 
     @Override

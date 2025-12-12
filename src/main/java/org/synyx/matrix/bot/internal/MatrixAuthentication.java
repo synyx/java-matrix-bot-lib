@@ -1,21 +1,15 @@
 package org.synyx.matrix.bot.internal;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 
 import java.util.Optional;
 
 public class MatrixAuthentication {
 
-  @Getter
   private final String username;
-  @Getter
   private final String password;
 
-  @Setter
   private MatrixUserId userId;
-  @Setter
   private String bearerToken;
 
   public MatrixAuthentication(String username, String password) {
@@ -36,6 +30,16 @@ public class MatrixAuthentication {
     userId = null;
   }
 
+  public String getUsername() {
+
+    return username;
+  }
+
+  public String getPassword() {
+
+    return password;
+  }
+
   public Optional<String> getBearerToken() {
 
     return Optional.ofNullable(bearerToken);
@@ -44,5 +48,15 @@ public class MatrixAuthentication {
   public Optional<MatrixUserId> getUserId() {
 
     return Optional.ofNullable(userId);
+  }
+
+  public void setUserId(MatrixUserId userId) {
+
+    this.userId = userId;
+  }
+
+  public void setBearerToken(String bearerToken) {
+
+    this.bearerToken = bearerToken;
   }
 }

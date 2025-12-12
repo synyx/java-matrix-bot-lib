@@ -6,7 +6,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixClient;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.MatrixEventConsumer;
@@ -25,8 +26,9 @@ import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 import java.io.IOException;
 import java.util.Optional;
 
-@Slf4j
 public class MatrixClientImpl implements MatrixClient {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MatrixClientImpl.class);
 
   private static final long DEFAULT_BACKOFF_IN_SEC = 3;
   private static final long BACKOFF_MAX_IN_SEC = 60;
@@ -84,7 +86,7 @@ public class MatrixClientImpl implements MatrixClient {
             throw new MatrixCommunicationException("Failed to login to matrix server!", e);
           }
 
-          log.info("Successfully logged in to matrix server as {}",
+          LOG.info("Successfully logged in to matrix server as {}",
               authentication.getUserId()
                   .map(MatrixUserId::toString)
                   .orElse("UNKNOWN")
@@ -146,7 +148,7 @@ public class MatrixClientImpl implements MatrixClient {
         }
 
       } catch (MatrixBackoffException e) {
-        log.warn("Sync failed: {}, backing off for {}s", e.getCause().getClass().getName(), currentBackoffInSec);
+        LOG.warn("Sync failed: {}, backing off for {}s", e.getCause().getClass().getName(), currentBackoffInSec);
 
         clearSyncState();
         Thread.sleep(currentBackoffInSec * 1000);
@@ -192,9 +194,9 @@ public class MatrixClientImpl implements MatrixClient {
           api.sendEvent(roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text"))
       );
     } catch (InterruptedException | IOException e) {
-      log.error("Failed to send message", e);
+      LOG.error("Failed to send message", e);
     } catch (MatrixApiException e) {
-      log.warn("Could not send message", e);
+      LOG.warn("Could not send message", e);
     }
 
     return Optional.empty();
@@ -209,9 +211,9 @@ public class MatrixClientImpl implements MatrixClient {
           api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto)
       );
     } catch (InterruptedException | IOException e) {
-      log.error("Failed to add reaction", e);
+      LOG.error("Failed to add reaction", e);
     } catch (MatrixApiException e) {
-      log.warn("Could not add reaction", e);
+      LOG.warn("Could not add reaction", e);
     }
 
     return Optional.empty();
@@ -224,9 +226,9 @@ public class MatrixClientImpl implements MatrixClient {
       api.joinRoom(roomId.getFormatted(), "i'm a bot");
       return true;
     } catch (InterruptedException | IOException e) {
-      log.error("Failed to join room", e);
+      LOG.error("Failed to join room", e);
     } catch (MatrixApiException e) {
-      log.warn("Could not join room", e);
+      LOG.warn("Could not join room", e);
     }
 
     return false;
@@ -239,9 +241,9 @@ public class MatrixClientImpl implements MatrixClient {
       api.leaveRoom(roomId.getFormatted(), "i'm a bot");
       return true;
     } catch (InterruptedException | IOException e) {
-      log.error("Failed to leave room", e);
+      LOG.error("Failed to leave room", e);
     } catch (MatrixApiException e) {
-      log.warn("Could not leave room", e);
+      LOG.warn("Could not leave room", e);
     }
 
     return false;

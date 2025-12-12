@@ -1,15 +1,9 @@
 package org.synyx.matrix.bot.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@EqualsAndHashCode
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class MatrixRoomId {
 
     /*
@@ -17,10 +11,14 @@ public class MatrixRoomId {
      */
     private static final Pattern ROOM_ID_PATTERN = Pattern.compile("^!([^:\\x00]+):(.+)$");
 
-    @Getter
     private final String opaqueId;
-    @Getter
     private final String domain;
+
+    private MatrixRoomId(String opaqueId, String domain) {
+
+        this.opaqueId = opaqueId;
+        this.domain = domain;
+    }
 
     public static Optional<MatrixRoomId> from(String value) {
 
@@ -35,9 +33,35 @@ public class MatrixRoomId {
         return Optional.of(new MatrixRoomId(opaqueId, domain));
     }
 
+    public String getOpaqueId() {
+
+        return opaqueId;
+    }
+
+    public String getDomain() {
+
+        return domain;
+    }
+
     public String getFormatted() {
 
         return "!%s:%s".formatted(opaqueId, domain);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MatrixRoomId that = (MatrixRoomId) o;
+        return Objects.equals(opaqueId, that.opaqueId) && Objects.equals(domain, that.domain);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(opaqueId, domain);
     }
 
     @Override

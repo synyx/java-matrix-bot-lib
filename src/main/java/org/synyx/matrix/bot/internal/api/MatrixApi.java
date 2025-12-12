@@ -2,7 +2,6 @@ package org.synyx.matrix.bot.internal.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.MatrixAuthentication;
@@ -27,7 +26,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
-@Slf4j
 public class MatrixApi {
 
   private static final Duration SYNC_TIMEOUT = Duration.of(30, ChronoUnit.SECONDS);
