@@ -12,6 +12,7 @@ import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUser;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.api.dto.ClientEventDto;
+import org.synyx.matrix.bot.internal.api.dto.MembershipStateDto;
 import org.synyx.matrix.bot.internal.api.dto.StrippedStateEventDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 import org.synyx.matrix.bot.internal.api.dto.event.CanonicalAliasEventContentDto;
@@ -156,13 +157,13 @@ public class MatrixStateSynchronizer {
   private void handleMemberEvent(
       MatrixRoom room, MatrixUserId sender, MemberEventContentDto content) {
 
-    if (content.membership() == MemberEventContentDto.MembershipState.JOIN) {
+    if (content.membership() == MembershipStateDto.JOIN) {
       final var user = getOrCreateUserInRoom(room, sender);
       if (content.displayName() != null) {
         user.setDisplayName(content.displayName());
       }
-    } else if (content.membership() == MemberEventContentDto.MembershipState.LEAVE
-        || content.membership() == MemberEventContentDto.MembershipState.BAN) {
+    } else if (content.membership() == MembershipStateDto.LEAVE
+        || content.membership() == MembershipStateDto.BAN) {
       room.getRoomUsers().removeIf(user -> user.getId().equals(sender));
     }
   }

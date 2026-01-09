@@ -9,4 +9,5 @@ public record ClientEventDto(
     @JsonProperty("origin_server_ts") long originServerTs,
     String sender,
     @JsonProperty("state_key") String stateKey,
-    String type) {}
+    String type,
+    UnsignedDataDto unsigned) {}
