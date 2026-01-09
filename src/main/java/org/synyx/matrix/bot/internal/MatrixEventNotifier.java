@@ -20,6 +20,7 @@ import org.synyx.matrix.bot.domain.MatrixRoomInvite;
 import org.synyx.matrix.bot.domain.MatrixTextMessage;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.api.dto.ClientEventDto;
+import org.synyx.matrix.bot.internal.api.dto.MembershipStateDto;
 import org.synyx.matrix.bot.internal.api.dto.StrippedStateEventDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 import org.synyx.matrix.bot.internal.api.dto.event.MemberEventContentDto;
@@ -184,15 +185,29 @@ public class MatrixEventNotifier {
       throw new RuntimeException(e);
     }
 
+    final var maybePreviousContent = getPreviousContent(event, MemberEventContentDto.class);
+
+    // > If not present, the user's previous membership must be assumed as leave.
+    final var previousMembership =
+        maybePreviousContent
+            .flatMap(
+                memberEventContentDto -> Optional.ofNullable(memberEventContentDto.membership()))
+            .filter(membershipStateDto -> membershipStateDto != MembershipStateDto.UNKNOWN)
+            .orElse(MembershipStateDto.LEAVE);
+
     final var sender = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
 
     try {
-      if (content.membership() == MemberEventContentDto.MembershipState.LEAVE
-          || content.membership() == MemberEventContentDto.MembershipState.BAN) {
-        consumer.onUserLeaveRoom(state, room, sender);
-      } else if (content.membership() == MemberEventContentDto.MembershipState.JOIN
+      if (content.membership() == MembershipStateDto.LEAVE
+          || content.membership() == MembershipStateDto.BAN) {
+        if (previousMembership == MembershipStateDto.JOIN) {
+          consumer.onUserLeaveRoom(state, room, sender);
+        }
+      } else if (content.membership() == MembershipStateDto.JOIN
           && !sender.equals(state.getOwnUserId())) {
-        consumer.onUserJoinRoom(state, room, sender);
+        if (previousMembership == MembershipStateDto.LEAVE) {
+          consumer.onUserJoinRoom(state, room, sender);
+        }
       }
     } catch (Exception e) {
       LOG.error("Uncaught exception when consuming member event", e);
@@ -213,7 +228,7 @@ public class MatrixEventNotifier {
       throw new RuntimeException(e);
     }
 
-    if (messageEventContent.membership() != MemberEventContentDto.MembershipState.INVITE) {
+    if (messageEventContent.membership() != MembershipStateDto.INVITE) {
       return;
     }
 
@@ -233,6 +248,24 @@ public class MatrixEventNotifier {
       consumer.onInviteToRoom(state, roomInvite);
     } catch (Exception e) {
       LOG.error("Uncaught exception when consuming room invite", e);
+    }
+  }
+
+  private <T> Optional<T> getPreviousContent(ClientEventDto event, Class<T> clazz) {
+
+    final var maybeJson =
+        Optional.ofNullable(event)
+            .flatMap(clientEventDto -> Optional.ofNullable(clientEventDto.unsigned()))
+            .flatMap(unsignedDataDto -> Optional.ofNullable(unsignedDataDto.prevContent()));
+
+    if (maybeJson.isEmpty()) {
+      return Optional.empty();
+    }
+
+    try {
+      return Optional.ofNullable(objectMapper.treeToValue(maybeJson.get(), clazz));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
     }
   }
 }
