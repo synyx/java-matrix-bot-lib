@@ -1,6 +1,7 @@
 package org.synyx.matrix.bot;
 
 import java.util.Optional;
+import org.synyx.matrix.bot.domain.MatrixContentUri;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.internal.MatrixClientImpl;
@@ -74,6 +75,8 @@ public interface MatrixClient {
    *     Optional#empty()} otherwise.
    */
   Optional<MatrixState> getState();
+
+  Optional<byte[]> getMatrixContent(MatrixContentUri contentUri);
 
   /**
    * Attempts to send a message to the specified room.
