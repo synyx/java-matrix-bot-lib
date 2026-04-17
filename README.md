@@ -57,3 +57,24 @@ public class MyMatrixBot implements MatrixEventConsumer {
   }
 }
 ```
+
+## Development
+
+If you want to develop on the library locally and test out your changes, you can publish it to your maven local like
+this:
+
+```shell
+./gradlew -Pversion="dev" publishToMavenLocal
+```
+
+This enables you to use your local development version like this:
+
+```xml
+
+<dependency>
+    <groupId>org.synyx</groupId>
+    <artifactId>java-matrix-bot-lib</artifactId>
+    <version>dev</version>
+</dependency>
+```
+
