@@ -14,10 +14,10 @@ import org.synyx.matrix.bot.MatrixClient;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.MatrixEventConsumer;
 import org.synyx.matrix.bot.MatrixPersistedStateProvider;
-import org.synyx.matrix.bot.MatrixState;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUserId;
+import org.synyx.matrix.bot.domain.state.MatrixState;
 import org.synyx.matrix.bot.internal.api.MatrixApi;
 import org.synyx.matrix.bot.internal.api.MatrixApiException;
 import org.synyx.matrix.bot.internal.api.dto.MessageDto;
@@ -35,7 +35,7 @@ public class MatrixClientImpl implements MatrixClient {
   private final MatrixAuthentication authentication;
   private final ObjectMapper objectMapper;
   private final MatrixApi api;
-  private MatrixState state;
+  private InternalMatrixState state;
   private MatrixStateSynchronizer stateSynchronizer;
   private MatrixPersistedStateProvider persistedState;
   private MatrixEventNotifier eventNotifier;
@@ -62,13 +62,11 @@ public class MatrixClientImpl implements MatrixClient {
 
   @Override
   public void setEventCallback(MatrixEventConsumer eventConsumer) {
-
     this.eventNotifier = MatrixEventNotifier.from(objectMapper, eventConsumer).orElse(null);
   }
 
   @Override
   public void setPersistedStateProvider(MatrixPersistedStateProvider persistedState) {
-
     this.persistedState = persistedState;
   }
 
@@ -91,7 +89,9 @@ public class MatrixClientImpl implements MatrixClient {
               authentication.getUserId().map(MatrixUserId::toString).orElse("UNKNOWN"));
         }
 
-        state = new MatrixState(authentication.getUserId().orElseThrow(IllegalStateException::new));
+        state =
+            new InternalMatrixState(
+                authentication.getUserId().orElseThrow(IllegalStateException::new));
         stateSynchronizer = new MatrixStateSynchronizer(state, objectMapper);
 
         SyncResponseDto syncResponse;
@@ -178,13 +178,11 @@ public class MatrixClientImpl implements MatrixClient {
 
   @Override
   public boolean isConnected() {
-
     return state != null;
   }
 
   @Override
   public Optional<MatrixState> getState() {
-
     return Optional.ofNullable(state);
   }
 

@@ -8,19 +8,24 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixEventConsumer;
-import org.synyx.matrix.bot.MatrixState;
-import org.synyx.matrix.bot.domain.MatrixEmoteMessage;
 import org.synyx.matrix.bot.domain.MatrixEventId;
-import org.synyx.matrix.bot.domain.MatrixMessage;
-import org.synyx.matrix.bot.domain.MatrixMessageType;
-import org.synyx.matrix.bot.domain.MatrixNoticeMessage;
-import org.synyx.matrix.bot.domain.MatrixRoom;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
-import org.synyx.matrix.bot.domain.MatrixRoomInvite;
-import org.synyx.matrix.bot.domain.MatrixTextMessage;
 import org.synyx.matrix.bot.domain.MatrixUserId;
+import org.synyx.matrix.bot.domain.event.MatrixMessageEvent;
+import org.synyx.matrix.bot.domain.event.MatrixRoomInviteEvent;
+import org.synyx.matrix.bot.domain.event.MatrixSelfLeaveRoomEvent;
+import org.synyx.matrix.bot.domain.event.MatrixUserJoinRoomEvent;
+import org.synyx.matrix.bot.domain.event.MatrixUserLeaveRoomEvent;
+import org.synyx.matrix.bot.domain.message.MatrixEmoteMessage;
+import org.synyx.matrix.bot.domain.message.MatrixMessage;
+import org.synyx.matrix.bot.domain.message.MatrixMessageType;
+import org.synyx.matrix.bot.domain.message.MatrixNoticeMessage;
+import org.synyx.matrix.bot.domain.message.MatrixTextMessage;
 import org.synyx.matrix.bot.internal.api.dto.ClientEventDto;
+import org.synyx.matrix.bot.internal.api.dto.InvitedRoomDto;
+import org.synyx.matrix.bot.internal.api.dto.JoinedRoomDto;
 import org.synyx.matrix.bot.internal.api.dto.MembershipStateDto;
+import org.synyx.matrix.bot.internal.api.dto.RoomTimelineDto;
 import org.synyx.matrix.bot.internal.api.dto.StrippedStateEventDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 import org.synyx.matrix.bot.internal.api.dto.event.MemberEventContentDto;
@@ -50,11 +55,11 @@ public class MatrixEventNotifier {
   }
 
   public MatrixEventConsumer getConsumer() {
-
     return consumer;
   }
 
-  public void notifyFromSynchronizationResponse(MatrixState state, SyncResponseDto syncResponse) {
+  public void notifyFromSynchronizationResponse(
+      InternalMatrixState state, SyncResponseDto syncResponse) {
 
     final var maybeRooms = Optional.ofNullable(syncResponse.rooms());
     final var invitedRooms =
@@ -65,21 +70,12 @@ public class MatrixEventNotifier {
     for (var entry : invitedRooms.entrySet()) {
 
       final var roomId = MatrixRoomId.from(entry.getKey()).orElseThrow(IllegalStateException::new);
-      final var maybeRoom =
-          state.getInvitedRooms().stream()
-              .filter(invitedRoom -> invitedRoom.getId().equals(roomId))
-              .findAny();
 
-      if (maybeRoom.isEmpty()) {
-        continue;
-      }
-
-      final var room = maybeRoom.get();
       Optional.ofNullable(entry.getValue())
-          .flatMap(roomDto -> Optional.ofNullable(roomDto.inviteState()))
-          .flatMap(inviteStateDto -> Optional.ofNullable(inviteStateDto.events()))
+          .map(InvitedRoomDto::inviteState)
+          .map(InvitedRoomDto.InviteStateDto::events)
           .orElseGet(List::of)
-          .forEach(eventDto -> notifyAboutInviteEvent(state, room, eventDto));
+          .forEach(eventDto -> notifyAboutInviteEvent(state, roomId, eventDto));
     }
 
     final var joinedRooms =
@@ -90,21 +86,11 @@ public class MatrixEventNotifier {
     for (var entry : joinedRooms.entrySet()) {
 
       final var roomId = MatrixRoomId.from(entry.getKey()).orElseThrow(IllegalStateException::new);
-      final var maybeRoom =
-          state.getJoinedRooms().stream()
-              .filter(joinedRoom -> joinedRoom.getId().equals(roomId))
-              .findAny();
-
-      if (maybeRoom.isEmpty()) {
-        continue;
-      }
-
-      final var room = maybeRoom.get();
       Optional.ofNullable(entry.getValue())
-          .flatMap(roomDto -> Optional.ofNullable(roomDto.timeline()))
-          .flatMap(timelineDto -> Optional.ofNullable(timelineDto.events()))
+          .map(JoinedRoomDto::timeline)
+          .map(RoomTimelineDto::events)
           .orElseGet(List::of)
-          .forEach(eventDto -> notifyAboutTimelineEvent(state, room, eventDto));
+          .forEach(eventDto -> notifyAboutTimelineEvent(state, roomId, eventDto));
     }
 
     final var leftRooms =
@@ -113,29 +99,34 @@ public class MatrixEventNotifier {
             .orElseGet(HashMap::new);
 
     for (var entry : leftRooms.entrySet()) {
+
       final var roomId = MatrixRoomId.from(entry.getKey()).orElseThrow(IllegalStateException::new);
+      final var domainEvent =
+          MatrixSelfLeaveRoomEvent.create(roomId).orElseThrow(IllegalStateException::new);
 
       try {
-        consumer.onSelfLeaveRoom(state, roomId);
+        consumer.onSelfLeaveRoom(state, domainEvent);
       } catch (Exception e) {
         LOG.error("Uncaught exception when consuming room leave", e);
       }
     }
   }
 
-  private void notifyAboutTimelineEvent(MatrixState state, MatrixRoom room, ClientEventDto event) {
+  private void notifyAboutTimelineEvent(
+      InternalMatrixState state, MatrixRoomId roomId, ClientEventDto event) {
 
     switch (event.type()) {
       case MessageEventContentDto.TYPE:
-        notifyAboutMessageEvent(state, room, event);
+        notifyAboutMessageEvent(state, roomId, event);
         break;
       case MemberEventContentDto.TYPE:
-        notifyAboutMemberEvent(state, room, event);
+        notifyAboutMemberEvent(state, roomId, event);
         break;
     }
   }
 
-  private void notifyAboutMessageEvent(MatrixState state, MatrixRoom room, ClientEventDto event) {
+  private void notifyAboutMessageEvent(
+      InternalMatrixState state, MatrixRoomId roomId, ClientEventDto event) {
 
     MessageEventContentDto content;
     try {
@@ -149,34 +140,33 @@ public class MatrixEventNotifier {
       return;
     }
 
-    final var eventId = MatrixEventId.from(event.eventId()).orElseThrow(IllegalStateException::new);
-    final var sender = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
-
     Optional<MatrixMessage> maybeMessage =
         switch (content.messageType()) {
-          case TEXT ->
-              MatrixTextMessage.from(eventId, content.body(), sender)
-                  .map(MatrixMessage.class::cast);
-          case EMOTE ->
-              MatrixEmoteMessage.from(eventId, content.body(), sender)
-                  .map(MatrixMessage.class::cast);
-          case NOTICE ->
-              MatrixNoticeMessage.from(eventId, content.body(), sender)
-                  .map(MatrixMessage.class::cast);
+          case TEXT -> MatrixTextMessage.create(content.body()).map(MatrixMessage.class::cast);
+          case EMOTE -> MatrixEmoteMessage.create(content.body()).map(MatrixMessage.class::cast);
+          case NOTICE -> MatrixNoticeMessage.create(content.body()).map(MatrixMessage.class::cast);
           default -> Optional.empty();
         };
 
-    try {
-      maybeMessage
-          // We should not handle notice messages as they should not be handled automatically
-          .filter(message -> message.getType() != MatrixMessageType.NOTICE)
-          .ifPresent(message -> consumer.onMessage(state, room, message));
-    } catch (Exception e) {
-      LOG.error("Uncaught exception when consuming message", e);
+    final var eventId = MatrixEventId.from(event.eventId()).orElseThrow(IllegalStateException::new);
+    final var senderId = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
+
+    // We should not handle notice messages as they should not be handled automatically
+    if (maybeMessage.isPresent() && maybeMessage.get().getType() != MatrixMessageType.NOTICE) {
+      final var domainEvent =
+          MatrixMessageEvent.create(eventId, roomId, senderId, maybeMessage.get())
+              .orElseThrow(IllegalStateException::new);
+
+      try {
+        consumer.onMessage(state, domainEvent);
+      } catch (Exception e) {
+        LOG.error("Uncaught exception when consuming message", e);
+      }
     }
   }
 
-  private void notifyAboutMemberEvent(MatrixState state, MatrixRoom room, ClientEventDto event) {
+  private void notifyAboutMemberEvent(
+      InternalMatrixState state, MatrixRoomId roomId, ClientEventDto event) {
 
     MemberEventContentDto content;
     try {
@@ -200,13 +190,23 @@ public class MatrixEventNotifier {
     try {
       if (content.membership() == MembershipStateDto.LEAVE
           || content.membership() == MembershipStateDto.BAN) {
+
         if (previousMembership == MembershipStateDto.JOIN) {
-          consumer.onUserLeaveRoom(state, room, sender);
+
+          final var domainEvent =
+              MatrixUserLeaveRoomEvent.create(roomId, sender)
+                  .orElseThrow(IllegalStateException::new);
+          consumer.onUserLeaveRoom(state, domainEvent);
         }
       } else if (content.membership() == MembershipStateDto.JOIN
           && !sender.equals(state.getOwnUserId())) {
+
         if (previousMembership == MembershipStateDto.LEAVE) {
-          consumer.onUserJoinRoom(state, room, sender);
+
+          final var domainEvent =
+              MatrixUserJoinRoomEvent.create(roomId, sender)
+                  .orElseThrow(IllegalStateException::new);
+          consumer.onUserJoinRoom(state, domainEvent);
         }
       }
     } catch (Exception e) {
@@ -215,7 +215,7 @@ public class MatrixEventNotifier {
   }
 
   private void notifyAboutInviteEvent(
-      MatrixState state, MatrixRoom room, StrippedStateEventDto event) {
+      InternalMatrixState state, MatrixRoomId roomId, StrippedStateEventDto event) {
 
     if (!MemberEventContentDto.TYPE.equals(event.type())) {
       return;
@@ -232,20 +232,13 @@ public class MatrixEventNotifier {
       return;
     }
 
-    final var maybeSender =
-        MatrixUserId.from(event.sender())
-            .flatMap(
-                senderId ->
-                    room.getRoomUsers().stream()
-                        .filter(matrixUser -> matrixUser.getId().equals(senderId))
-                        .findAny());
+    final var senderId = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
 
-    final var roomInvite =
-        MatrixRoomInvite.from(room, maybeSender.orElse(null))
-            .orElseThrow(IllegalStateException::new);
+    final var domainEvent =
+        MatrixRoomInviteEvent.create(roomId, senderId).orElseThrow(IllegalStateException::new);
 
     try {
-      consumer.onInviteToRoom(state, roomInvite);
+      consumer.onInviteToRoom(state, domainEvent);
     } catch (Exception e) {
       LOG.error("Uncaught exception when consuming room invite", e);
     }
