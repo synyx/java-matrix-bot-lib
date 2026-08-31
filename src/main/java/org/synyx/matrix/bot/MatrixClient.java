@@ -3,6 +3,7 @@ package org.synyx.matrix.bot;
 import java.util.Optional;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
+import org.synyx.matrix.bot.domain.state.MatrixState;
 import org.synyx.matrix.bot.internal.MatrixClientImpl;
 
 /**
@@ -21,7 +22,6 @@ public interface MatrixClient {
    * @return A {@link MatrixClient} implementation that connects to the specified matrix server.
    */
   static MatrixClient create(String url, String username, String password) {
-
     return new MatrixClientImpl(url, username, password);
   }
 

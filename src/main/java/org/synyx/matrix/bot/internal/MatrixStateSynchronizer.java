@@ -5,11 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import org.synyx.matrix.bot.MatrixState;
-import org.synyx.matrix.bot.domain.MatrixRoom;
 import org.synyx.matrix.bot.domain.MatrixRoomAlias;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
-import org.synyx.matrix.bot.domain.MatrixUser;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.api.dto.ClientEventDto;
 import org.synyx.matrix.bot.internal.api.dto.MembershipStateDto;
@@ -18,13 +15,15 @@ import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
 import org.synyx.matrix.bot.internal.api.dto.event.CanonicalAliasEventContentDto;
 import org.synyx.matrix.bot.internal.api.dto.event.MemberEventContentDto;
 import org.synyx.matrix.bot.internal.api.dto.event.RoomNameEventContentDto;
+import org.synyx.matrix.bot.internal.state.InternalMatrixRoomState;
+import org.synyx.matrix.bot.internal.state.InternalMatrixUserState;
 
 public class MatrixStateSynchronizer {
 
-  private final MatrixState state;
+  private final InternalMatrixState state;
   private final ObjectMapper objectMapper;
 
-  public MatrixStateSynchronizer(MatrixState state, ObjectMapper objectMapper) {
+  public MatrixStateSynchronizer(InternalMatrixState state, ObjectMapper objectMapper) {
 
     this.state = state;
     this.objectMapper = objectMapper;
@@ -41,7 +40,7 @@ public class MatrixStateSynchronizer {
     for (var entry : invitedRooms.entrySet()) {
 
       final var roomId = MatrixRoomId.from(entry.getKey()).orElseThrow(IllegalStateException::new);
-      final var room = getOrCreateRoom(state.getInvitedRooms(), roomId);
+      final var room = getOrCreateRoom(state.getInvitedRoomsInternal(), roomId);
 
       Optional.ofNullable(entry.getValue())
           .flatMap(roomDto -> Optional.ofNullable(roomDto.inviteState()))
@@ -59,7 +58,7 @@ public class MatrixStateSynchronizer {
 
       final var roomId = MatrixRoomId.from(entry.getKey()).orElseThrow(IllegalStateException::new);
       removeFromInvitedRoomsIfExisting(roomId);
-      final var room = getOrCreateRoom(state.getJoinedRooms(), roomId);
+      final var room = getOrCreateRoom(state.getJoinedRoomsInternal(), roomId);
 
       Optional.ofNullable(entry.getValue())
           .flatMap(roomDto -> Optional.ofNullable(roomDto.state()))
@@ -86,7 +85,7 @@ public class MatrixStateSynchronizer {
     }
   }
 
-  private void synchronizeClientEvent(MatrixRoom room, ClientEventDto event) {
+  private void synchronizeClientEvent(InternalMatrixRoomState room, ClientEventDto event) {
 
     final var sender = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
 
@@ -113,7 +112,7 @@ public class MatrixStateSynchronizer {
     }
   }
 
-  private void synchronizeStrippedEvent(MatrixRoom room, StrippedStateEventDto event) {
+  private void synchronizeStrippedEvent(InternalMatrixRoomState room, StrippedStateEventDto event) {
 
     final var sender = MatrixUserId.from(event.sender()).orElseThrow(IllegalStateException::new);
 
@@ -140,12 +139,13 @@ public class MatrixStateSynchronizer {
     }
   }
 
-  private void handleRoomNameEvent(MatrixRoom room, RoomNameEventContentDto content) {
+  private void handleRoomNameEvent(InternalMatrixRoomState room, RoomNameEventContentDto content) {
 
     room.setName(content.name());
   }
 
-  private void handleCanonicalAliasEvent(MatrixRoom room, CanonicalAliasEventContentDto content) {
+  private void handleCanonicalAliasEvent(
+      InternalMatrixRoomState room, CanonicalAliasEventContentDto content) {
 
     if (content.alias() != null) {
       final var newCanonicalAlias =
@@ -155,7 +155,7 @@ public class MatrixStateSynchronizer {
   }
 
   private void handleMemberEvent(
-      MatrixRoom room, MatrixUserId sender, MemberEventContentDto content) {
+      InternalMatrixRoomState room, MatrixUserId sender, MemberEventContentDto content) {
 
     if (content.membership() == MembershipStateDto.JOIN) {
       final var user = getOrCreateUserInRoom(room, sender);
@@ -164,11 +164,12 @@ public class MatrixStateSynchronizer {
       }
     } else if (content.membership() == MembershipStateDto.LEAVE
         || content.membership() == MembershipStateDto.BAN) {
-      room.getRoomUsers().removeIf(user -> user.getId().equals(sender));
+      room.getRoomUsersInternal().removeIf(user -> user.getId().equals(sender));
     }
   }
 
-  private static MatrixRoom getOrCreateRoom(List<MatrixRoom> rooms, MatrixRoomId roomId) {
+  private static InternalMatrixRoomState getOrCreateRoom(
+      List<InternalMatrixRoomState> rooms, MatrixRoomId roomId) {
 
     final var maybeExistingRoom =
         rooms.stream().filter(room -> room.getId().equals(roomId)).findAny();
@@ -177,34 +178,37 @@ public class MatrixStateSynchronizer {
       return maybeExistingRoom.get();
     }
 
-    final var newRoom = MatrixRoom.from(roomId).orElseThrow(IllegalStateException::new);
+    final var newRoom =
+        InternalMatrixRoomState.from(roomId).orElseThrow(IllegalStateException::new);
     rooms.add(newRoom);
 
     return newRoom;
   }
 
-  private static MatrixUser getOrCreateUserInRoom(MatrixRoom room, MatrixUserId userId) {
+  private static InternalMatrixUserState getOrCreateUserInRoom(
+      InternalMatrixRoomState room, MatrixUserId userId) {
 
     final var maybeExistingUser =
-        room.getRoomUsers().stream().filter(user -> user.getId().equals(userId)).findAny();
+        room.getRoomUsersInternal().stream().filter(user -> user.getId().equals(userId)).findAny();
 
     if (maybeExistingUser.isPresent()) {
       return maybeExistingUser.get();
     }
 
-    final var newUser = MatrixUser.from(userId).orElseThrow(IllegalStateException::new);
-    room.getRoomUsers().add(newUser);
+    final var newUser =
+        InternalMatrixUserState.from(userId).orElseThrow(IllegalStateException::new);
+    room.getRoomUsersInternal().add(newUser);
 
     return newUser;
   }
 
   private void removeFromInvitedRoomsIfExisting(MatrixRoomId roomId) {
 
-    state.getInvitedRooms().removeIf(room -> room.getId().equals(roomId));
+    state.getInvitedRoomsInternal().removeIf(room -> room.getId().equals(roomId));
   }
 
   private void removeFromJoinedRoomsIfExisting(MatrixRoomId roomId) {
 
-    state.getJoinedRooms().removeIf(room -> room.getId().equals(roomId));
+    state.getJoinedRoomsInternal().removeIf(room -> room.getId().equals(roomId));
   }
 }

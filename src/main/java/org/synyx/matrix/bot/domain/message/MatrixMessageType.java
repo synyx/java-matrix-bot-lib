@@ -1,4 +1,4 @@
-package org.synyx.matrix.bot.domain;
+package org.synyx.matrix.bot.domain.message;
 
 public enum MatrixMessageType {
   TEXT,

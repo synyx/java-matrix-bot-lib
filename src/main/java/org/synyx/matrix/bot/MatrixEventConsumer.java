@@ -1,10 +1,11 @@
 package org.synyx.matrix.bot;
 
-import org.synyx.matrix.bot.domain.MatrixMessage;
-import org.synyx.matrix.bot.domain.MatrixRoom;
-import org.synyx.matrix.bot.domain.MatrixRoomId;
-import org.synyx.matrix.bot.domain.MatrixRoomInvite;
-import org.synyx.matrix.bot.domain.MatrixUserId;
+import org.synyx.matrix.bot.domain.event.MatrixMessageEvent;
+import org.synyx.matrix.bot.domain.event.MatrixRoomInviteEvent;
+import org.synyx.matrix.bot.domain.event.MatrixSelfLeaveRoomEvent;
+import org.synyx.matrix.bot.domain.event.MatrixUserJoinRoomEvent;
+import org.synyx.matrix.bot.domain.event.MatrixUserLeaveRoomEvent;
+import org.synyx.matrix.bot.domain.state.MatrixState;
 import org.synyx.matrix.bot.internal.MatrixClientImpl;
 
 /**
@@ -20,7 +21,7 @@ public interface MatrixEventConsumer {
   /**
    * The client successfully connected to the server.
    *
-   * @param state The state after the initial synchronisation.
+   * @param state The state after the initial synchronization.
    */
   default void onConnected(MatrixState state) {}
 
@@ -28,43 +29,40 @@ public interface MatrixEventConsumer {
    * A message event was received in a room that the client is part of.
    *
    * @param state The current client state.
-   * @param room The room the message was received in.
-   * @param message The message that was received.
+   * @param event Details about the event that happened.
    */
-  default void onMessage(MatrixState state, MatrixRoom room, MatrixMessage message) {}
+  default void onMessage(MatrixState state, MatrixMessageEvent event) {}
 
   /**
    * An invitation to a room was received.
    *
    * @param state The current client state.
-   * @param invite The invite that was received.
+   * @param event Details about the event that happened.
    */
-  default void onInviteToRoom(MatrixState state, MatrixRoomInvite invite) {}
+  default void onInviteToRoom(MatrixState state, MatrixRoomInviteEvent event) {}
 
   /**
    * A user joined a room that the client is part of.
    *
    * @param state The current client state.
-   * @param room The room that the user joined in.
-   * @param userId The id of the user that joined the room.
+   * @param event Details about the event that happened.
    */
-  default void onUserJoinRoom(MatrixState state, MatrixRoom room, MatrixUserId userId) {}
+  default void onUserJoinRoom(MatrixState state, MatrixUserJoinRoomEvent event) {}
 
   /**
    * A user left a room that the client is part of.
    *
    * @param state The current client state.
-   * @param room The room that the user left from.
-   * @param userId The id of the user that left the room.
+   * @param event Details about the event that happened.
    */
-  default void onUserLeaveRoom(MatrixState state, MatrixRoom room, MatrixUserId userId) {}
+  default void onUserLeaveRoom(MatrixState state, MatrixUserLeaveRoomEvent event) {}
 
   /**
    * The client left a room it was part of. May have been caused by external factors like kicks or
    * bans.
    *
    * @param state The current client state.
-   * @param roomId The id of the room that the client left from.
+   * @param event Details about the event that happened.
    */
-  default void onSelfLeaveRoom(MatrixState state, MatrixRoomId roomId) {}
+  default void onSelfLeaveRoom(MatrixState state, MatrixSelfLeaveRoomEvent event) {}
 }
