@@ -17,6 +17,7 @@ import org.synyx.matrix.bot.domain.event.MatrixSelfLeaveRoomEvent;
 import org.synyx.matrix.bot.domain.event.MatrixUserJoinRoomEvent;
 import org.synyx.matrix.bot.domain.event.MatrixUserLeaveRoomEvent;
 import org.synyx.matrix.bot.domain.message.MatrixEmoteMessage;
+import org.synyx.matrix.bot.domain.message.MatrixImageMessage;
 import org.synyx.matrix.bot.domain.message.MatrixMessage;
 import org.synyx.matrix.bot.domain.message.MatrixMessageType;
 import org.synyx.matrix.bot.domain.message.MatrixNoticeMessage;
@@ -145,6 +146,9 @@ public class MatrixEventNotifier {
           case TEXT -> MatrixTextMessage.create(content.body()).map(MatrixMessage.class::cast);
           case EMOTE -> MatrixEmoteMessage.create(content.body()).map(MatrixMessage.class::cast);
           case NOTICE -> MatrixNoticeMessage.create(content.body()).map(MatrixMessage.class::cast);
+          case IMAGE ->
+              MatrixImageMessage.create(content.body(), content.filename(), content.url())
+                  .map(MatrixMessage.class::cast);
           default -> Optional.empty();
         };
 

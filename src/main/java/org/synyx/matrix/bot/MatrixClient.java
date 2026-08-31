@@ -2,8 +2,10 @@ package org.synyx.matrix.bot;
 
 import java.util.Optional;
 import org.synyx.matrix.bot.domain.MatrixContentUri;
+import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
+import org.synyx.matrix.bot.domain.message.MatrixMessage;
 import org.synyx.matrix.bot.domain.state.MatrixState;
 import org.synyx.matrix.bot.internal.MatrixClientImpl;
 
@@ -76,10 +78,27 @@ public interface MatrixClient {
    */
   Optional<MatrixState> getState();
 
-  Optional<byte[]> getMatrixContent(MatrixContentUri contentUri);
+  /**
+   * Downloads media specified by a content uri.
+   *
+   * @param contentUri The uri to download the media from.
+   * @return A {@link MatrixDownloadedMedia} object containing the data of the media and additional
+   *     metadata.
+   */
+  Optional<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri);
 
   /**
-   * Attempts to send a message to the specified room.
+   * Uploads media to the server and retrieves a content uri for it.
+   *
+   * @param data The data to upload to the server.
+   * @param contentType The content type of the media.
+   * @param fileName The file name of the media.
+   * @return The content uri of the media that was uploaded.
+   */
+  Optional<MatrixContentUri> uploadMedia(byte[] data, String contentType, String fileName);
+
+  /**
+   * Attempts to send a text message to the specified room.
    *
    * @param roomId The id of the room to send the message to.
    * @param messageBody The body of the message to send.
@@ -87,6 +106,16 @@ public interface MatrixClient {
    *     Optional#empty()} if sending the message did not succeed.
    */
   Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody);
+
+  /**
+   * Attempts to send a message to the specified room.
+   *
+   * @param roomId The id of the room to send the message to.
+   * @param message The message to send.
+   * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link
+   *     Optional#empty()} if sending the message did not succeed.
+   */
+  Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message);
 
   /**
    * Attempts to add a reaction to an event (a message of the time).
