@@ -12,9 +12,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.synyx.matrix.bot.MatrixCommunicationException;
+import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.internal.MatrixAuthentication;
 import org.synyx.matrix.bot.internal.api.dto.EventIdResponseDto;
@@ -24,6 +27,7 @@ import org.synyx.matrix.bot.internal.api.dto.MatrixLoginResponseDto;
 import org.synyx.matrix.bot.internal.api.dto.RoomJoinPayloadDto;
 import org.synyx.matrix.bot.internal.api.dto.RoomLeavePayloadDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
+import org.synyx.matrix.bot.internal.api.dto.UploadMediaResponseDto;
 
 public class MatrixApi {
 
@@ -31,6 +35,13 @@ public class MatrixApi {
   private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.of(30, ChronoUnit.SECONDS);
   private static final Duration SYNC_REQUEST_TIMEOUT =
       Duration.of((long) (SYNC_TIMEOUT.toMillis() * 1.5D), ChronoUnit.MILLIS);
+
+  private static final String CONTENT_TYPE = "Content-Type";
+  private static final String CONTENT_DISPOSITION = "Content-Disposition";
+  private static final Pattern CONTENT_DISPOSITION_FILE_NAME_PATTERN_NO_QUOTES =
+      Pattern.compile("filename=([^\\s;\"]+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CONTENT_DISPOSITION_FILE_NAME_PATTERN_WITH_QUOTES =
+      Pattern.compile("filename=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
 
   private final URI baseUri;
   private final MatrixAuthentication authentication;
@@ -58,7 +69,7 @@ public class MatrixApi {
 
     final var response =
         httpClient.send(
-            post(
+            postJson(
                     "/_matrix/client/v3/login",
                     null,
                     new MatrixLoginDto(
@@ -133,7 +144,7 @@ public class MatrixApi {
     final var uri = "/_matrix/client/v3/rooms/%s/join".formatted(roomId);
     final var response =
         httpClient.send(
-            post(uri, null, new RoomJoinPayloadDto(reason)).build(),
+            postJson(uri, null, new RoomJoinPayloadDto(reason)).build(),
             HttpResponse.BodyHandlers.ofString());
 
     expected2xx("joining room", response);
@@ -145,10 +156,51 @@ public class MatrixApi {
     final var uri = "/_matrix/client/v3/rooms/%s/leave".formatted(roomId);
     final var response =
         httpClient.send(
-            post(uri, null, new RoomLeavePayloadDto(reason)).build(),
+            postJson(uri, null, new RoomLeavePayloadDto(reason)).build(),
             HttpResponse.BodyHandlers.ofString());
 
     expected2xx("leaving room", response);
+  }
+
+  public MatrixDownloadedMedia downloadMedia(String serverName, String mediaId)
+      throws IOException, InterruptedException, MatrixApiException {
+
+    final var uri =
+        "/_matrix/client/v1/media/download/%s/%s"
+            .formatted(
+                URLEncoder.encode(serverName, StandardCharsets.UTF_8),
+                URLEncoder.encode(mediaId, StandardCharsets.UTF_8));
+
+    final var response =
+        httpClient.send(get(uri, null).build(), HttpResponse.BodyHandlers.ofByteArray());
+
+    expected2xx("downloading media", response);
+
+    final var contentType = response.headers().firstValue(CONTENT_TYPE);
+    final var contentDisposition = response.headers().firstValue(CONTENT_DISPOSITION);
+    final var fileName = contentDisposition.flatMap(MatrixApi::getFileNameFromContentDisposition);
+
+    return MatrixDownloadedMedia.create(
+            contentType.orElse(null), fileName.orElse(null), response.body())
+        .orElseThrow(IllegalStateException::new);
+  }
+
+  public String uploadMedia(String contentType, String fileName, byte[] data)
+      throws IOException, InterruptedException, MatrixApiException {
+
+    final var response =
+        httpClient.send(
+            postBinary(
+                    "/_matrix/media/v3/upload",
+                    "filename=%s".formatted(URLEncoder.encode(fileName, StandardCharsets.UTF_8)),
+                    contentType,
+                    data)
+                .build(),
+            jsonBodyHandler(UploadMediaResponseDto.class));
+
+    expected2xx("uploading media", response);
+
+    return response.body().contentUri();
   }
 
   private HttpRequest.Builder get(String url, String query) {
@@ -160,22 +212,30 @@ public class MatrixApi {
 
     try {
       return request(url, query)
-          .header("Content-Type", "application/json")
+          .header(CONTENT_TYPE, "application/json")
           .PUT(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
     } catch (JsonProcessingException e) {
       throw new MatrixCommunicationException("Failed to parse JSON", e);
     }
   }
 
-  private <T> HttpRequest.Builder post(String url, String query, T body) {
+  private <T> HttpRequest.Builder postJson(String url, String query, T body) {
 
     try {
       return request(url, query)
-          .header("Content-Type", "application/json")
+          .header(CONTENT_TYPE, "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
     } catch (JsonProcessingException e) {
       throw new MatrixCommunicationException("Failed to parse JSON", e);
     }
+  }
+
+  private HttpRequest.Builder postBinary(
+      String url, String query, String contentType, byte[] data) {
+
+    return request(url, query)
+        .header(CONTENT_TYPE, Objects.requireNonNullElse(contentType, "application/octet-stream"))
+        .POST(HttpRequest.BodyPublishers.ofByteArray(data));
   }
 
   private HttpRequest.Builder request(String url, String query) {
@@ -226,5 +286,23 @@ public class MatrixApi {
     if (statusCode < 200 || statusCode >= 300) {
       throw new MatrixApiException(performedAction, response);
     }
+  }
+
+  private static Optional<String> getFileNameFromContentDisposition(
+      String contentDispositionValue) {
+
+    final var matchWithQuotes =
+        CONTENT_DISPOSITION_FILE_NAME_PATTERN_WITH_QUOTES.matcher(contentDispositionValue);
+    if (matchWithQuotes.hasMatch()) {
+      return Optional.ofNullable(matchWithQuotes.group(1));
+    }
+
+    final var matchNoQuotes =
+        CONTENT_DISPOSITION_FILE_NAME_PATTERN_NO_QUOTES.matcher(contentDispositionValue);
+    if (matchNoQuotes.hasMatch()) {
+      return Optional.ofNullable(matchNoQuotes.group(1));
+    }
+
+    return Optional.empty();
   }
 }

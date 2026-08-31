@@ -14,12 +14,20 @@ import org.synyx.matrix.bot.MatrixClient;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.MatrixEventConsumer;
 import org.synyx.matrix.bot.MatrixPersistedStateProvider;
+import org.synyx.matrix.bot.domain.MatrixContentUri;
+import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
 import org.synyx.matrix.bot.domain.MatrixEventId;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUserId;
+import org.synyx.matrix.bot.domain.message.MatrixEmoteMessage;
+import org.synyx.matrix.bot.domain.message.MatrixImageMessage;
+import org.synyx.matrix.bot.domain.message.MatrixMessage;
+import org.synyx.matrix.bot.domain.message.MatrixNoticeMessage;
+import org.synyx.matrix.bot.domain.message.MatrixTextMessage;
 import org.synyx.matrix.bot.domain.state.MatrixState;
 import org.synyx.matrix.bot.internal.api.MatrixApi;
 import org.synyx.matrix.bot.internal.api.MatrixApiException;
+import org.synyx.matrix.bot.internal.api.dto.ImageMessageDto;
 import org.synyx.matrix.bot.internal.api.dto.MessageDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionDto;
 import org.synyx.matrix.bot.internal.api.dto.ReactionRelatesToDto;
@@ -187,12 +195,61 @@ public class MatrixClientImpl implements MatrixClient {
   }
 
   @Override
-  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
+  public Optional<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri) {
 
     try {
-      return MatrixEventId.from(
-          api.sendEvent(
-              roomId.getFormatted(), "m.room.message", new MessageDto(messageBody, "m.text")));
+      return Optional.of(api.downloadMedia(contentUri.getServerName(), contentUri.getMediaId()));
+    } catch (InterruptedException | IOException e) {
+      LOG.error("Failed to download media", e);
+    } catch (MatrixApiException e) {
+      LOG.warn("Could not download media", e);
+    }
+
+    return Optional.empty();
+  }
+
+  @Override
+  public Optional<MatrixContentUri> uploadMedia(byte[] data, String contentType, String fileName) {
+
+    try {
+      return MatrixContentUri.from(api.uploadMedia(contentType, fileName, data));
+    } catch (InterruptedException | IOException e) {
+      LOG.error("Failed to upload media", e);
+    } catch (MatrixApiException e) {
+      LOG.warn("Could not upload media", e);
+    }
+
+    return Optional.empty();
+  }
+
+  @Override
+  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
+    return MatrixTextMessage.create(messageBody).flatMap(message -> sendMessage(roomId, message));
+  }
+
+  @Override
+  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message) {
+
+    final Optional<?> eventDto =
+        switch (message) {
+          case MatrixTextMessage textMessage ->
+              Optional.of(new MessageDto(textMessage.getBody(), "m.text"));
+          case MatrixEmoteMessage emoteMessage ->
+              Optional.of(new MessageDto(emoteMessage.getBody(), "m.emote"));
+          case MatrixNoticeMessage noticeMessage ->
+              Optional.of(new MessageDto(noticeMessage.getBody(), "m.notice"));
+          case MatrixImageMessage imageMessage ->
+              Optional.of(
+                  new ImageMessageDto(
+                      imageMessage.getBody(),
+                      "m.image",
+                      imageMessage.getFileName().orElse(null),
+                      imageMessage.getUrl().orElse(null)));
+          default -> Optional.empty();
+        };
+
+    try {
+      return MatrixEventId.from(api.sendEvent(roomId.getFormatted(), "m.room.message", eventDto));
     } catch (InterruptedException | IOException e) {
       LOG.error("Failed to send message", e);
     } catch (MatrixApiException e) {
