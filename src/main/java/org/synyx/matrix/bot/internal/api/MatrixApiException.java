@@ -3,7 +3,7 @@ package org.synyx.matrix.bot.internal.api;
 import java.io.IOException;
 import java.net.http.HttpResponse;
 
-public class MatrixApiException extends Exception {
+public class MatrixApiException extends RuntimeException {
 
   public MatrixApiException(String performedAction, HttpResponse<?> response) {
 

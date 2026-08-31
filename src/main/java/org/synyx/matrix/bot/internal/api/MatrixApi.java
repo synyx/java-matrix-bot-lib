@@ -15,6 +15,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
@@ -65,10 +66,10 @@ public class MatrixApi {
     httpClient.shutdownNow();
   }
 
-  public void login() throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<Void> login() {
 
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             postJson(
                     "/_matrix/client/v3/login",
                     null,
@@ -79,23 +80,27 @@ public class MatrixApi {
                 .build(),
             jsonBodyHandler(MatrixLoginResponseDto.class));
 
-    expected2xx("login", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("login", response);
 
-    final var body = response.body();
-    if (body == null) {
-      throw new MatrixApiException("Received no login data", response);
-    }
+          final var body = response.body();
+          if (body == null) {
+            throw new MatrixApiException("Received no login data", response);
+          }
 
-    final var userId = MatrixUserId.from(body.userId()).orElseThrow(IllegalStateException::new);
-    authentication.setUserId(userId);
-    authentication.setBearerToken(body.accessToken());
+          final var userId =
+              MatrixUserId.from(body.userId()).orElseThrow(IllegalStateException::new);
+          authentication.setUserId(userId);
+          authentication.setBearerToken(body.accessToken());
+          return null;
+        });
   }
 
-  public Optional<SyncResponseDto> sync(String since)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<SyncResponseDto> sync(String since) {
 
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             get(
                     "/_matrix/client/v3/sync",
                     "timeout=%d&since=%s"
@@ -106,64 +111,77 @@ public class MatrixApi {
                 .build(),
             jsonBodyHandler(SyncResponseDto.class));
 
-    expected2xx("syncing", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("syncing", response);
 
-    return Optional.ofNullable(response.body());
+          return response.body();
+        });
   }
 
-  public Optional<SyncResponseDto> syncFull()
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<SyncResponseDto> syncFull() {
 
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             get("/_matrix/client/v3/sync", "timeout=0").build(),
             jsonBodyHandler(SyncResponseDto.class));
 
-    expected2xx("full syncing", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("full syncing", response);
 
-    return Optional.ofNullable(response.body());
+          return response.body();
+        });
   }
 
-  public String sendEvent(String roomId, String eventType, Object event)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<String> sendEvent(String roomId, String eventType, Object event) {
 
     final var uri =
         "/_matrix/client/v3/rooms/%s/send/%s/%s".formatted(roomId, eventType, UUID.randomUUID());
 
-    final var response =
-        httpClient.send(put(uri, null, event).build(), jsonBodyHandler(EventIdResponseDto.class));
+    final var futureResponse =
+        httpClient.sendAsync(
+            put(uri, null, event).build(), jsonBodyHandler(EventIdResponseDto.class));
 
-    expected2xx("sending event", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("sending event", response);
 
-    return response.body().eventId();
+          return response.body().eventId();
+        });
   }
 
-  public void joinRoom(String roomId, String reason)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<Void> joinRoom(String roomId, String reason) {
 
     final var uri = "/_matrix/client/v3/rooms/%s/join".formatted(roomId);
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             postJson(uri, null, new RoomJoinPayloadDto(reason)).build(),
             HttpResponse.BodyHandlers.ofString());
 
-    expected2xx("joining room", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("joining room", response);
+          return null;
+        });
   }
 
-  public void leaveRoom(String roomId, String reason)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<Void> leaveRoom(String roomId, String reason) {
 
     final var uri = "/_matrix/client/v3/rooms/%s/leave".formatted(roomId);
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             postJson(uri, null, new RoomLeavePayloadDto(reason)).build(),
             HttpResponse.BodyHandlers.ofString());
 
-    expected2xx("leaving room", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("leaving room", response);
+          return null;
+        });
   }
 
-  public MatrixDownloadedMedia downloadMedia(String serverName, String mediaId)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<MatrixDownloadedMedia> downloadMedia(String serverName, String mediaId) {
 
     final var uri =
         "/_matrix/client/v1/media/download/%s/%s"
@@ -171,25 +189,28 @@ public class MatrixApi {
                 URLEncoder.encode(serverName, StandardCharsets.UTF_8),
                 URLEncoder.encode(mediaId, StandardCharsets.UTF_8));
 
-    final var response =
-        httpClient.send(get(uri, null).build(), HttpResponse.BodyHandlers.ofByteArray());
+    final var futureResponse =
+        httpClient.sendAsync(get(uri, null).build(), HttpResponse.BodyHandlers.ofByteArray());
 
-    expected2xx("downloading media", response);
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("downloading media", response);
 
-    final var contentType = response.headers().firstValue(CONTENT_TYPE);
-    final var contentDisposition = response.headers().firstValue(CONTENT_DISPOSITION);
-    final var fileName = contentDisposition.flatMap(MatrixApi::getFileNameFromContentDisposition);
+          final var contentType = response.headers().firstValue(CONTENT_TYPE);
+          final var contentDisposition = response.headers().firstValue(CONTENT_DISPOSITION);
+          final var fileName =
+              contentDisposition.flatMap(MatrixApi::getFileNameFromContentDisposition);
 
-    return MatrixDownloadedMedia.create(
-            contentType.orElse(null), fileName.orElse(null), response.body())
-        .orElseThrow(IllegalStateException::new);
+          return MatrixDownloadedMedia.create(
+                  contentType.orElse(null), fileName.orElse(null), response.body())
+              .orElseThrow(IllegalStateException::new);
+        });
   }
 
-  public String uploadMedia(String contentType, String fileName, byte[] data)
-      throws IOException, InterruptedException, MatrixApiException {
+  public CompletableFuture<String> uploadMedia(String contentType, String fileName, byte[] data) {
 
-    final var response =
-        httpClient.send(
+    final var futureResponse =
+        httpClient.sendAsync(
             postBinary(
                     "/_matrix/media/v3/upload",
                     "filename=%s".formatted(URLEncoder.encode(fileName, StandardCharsets.UTF_8)),
@@ -198,9 +219,11 @@ public class MatrixApi {
                 .build(),
             jsonBodyHandler(UploadMediaResponseDto.class));
 
-    expected2xx("uploading media", response);
-
-    return response.body().contentUri();
+    return futureResponse.thenApply(
+        response -> {
+          expected2xx("uploading media", response);
+          return response.body().contentUri();
+        });
   }
 
   private HttpRequest.Builder get(String url, String query) {
