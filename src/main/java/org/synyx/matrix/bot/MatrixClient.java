@@ -1,6 +1,7 @@
 package org.synyx.matrix.bot;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.synyx.matrix.bot.domain.MatrixContentUri;
 import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
 import org.synyx.matrix.bot.domain.MatrixEventId;
@@ -85,7 +86,7 @@ public interface MatrixClient {
    * @return A {@link MatrixDownloadedMedia} object containing the data of the media and additional
    *     metadata.
    */
-  Optional<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri);
+  CompletableFuture<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri);
 
   /**
    * Uploads media to the server and retrieves a content uri for it.
@@ -95,7 +96,7 @@ public interface MatrixClient {
    * @param fileName The file name of the media.
    * @return The content uri of the media that was uploaded.
    */
-  Optional<MatrixContentUri> uploadMedia(byte[] data, String contentType, String fileName);
+  CompletableFuture<MatrixContentUri> uploadMedia(byte[] data, String contentType, String fileName);
 
   /**
    * Attempts to send a text message to the specified room.
@@ -105,7 +106,7 @@ public interface MatrixClient {
    * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link
    *     Optional#empty()} if sending the message did not succeed.
    */
-  Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody);
+  CompletableFuture<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody);
 
   /**
    * Attempts to send a message to the specified room.
@@ -115,7 +116,7 @@ public interface MatrixClient {
    * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link
    *     Optional#empty()} if sending the message did not succeed.
    */
-  Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message);
+  CompletableFuture<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message);
 
   /**
    * Attempts to add a reaction to an event (a message of the time).
@@ -126,7 +127,8 @@ public interface MatrixClient {
    * @return A {@link MatrixEventId} containing the id of the event that was sent or {@link
    *     Optional#empty()} if sending the reaction did not succeed.
    */
-  Optional<MatrixEventId> addReaction(MatrixRoomId roomId, MatrixEventId eventId, String reaction);
+  CompletableFuture<MatrixEventId> addReaction(
+      MatrixRoomId roomId, MatrixEventId eventId, String reaction);
 
   /**
    * Attempts to join a room.
@@ -134,7 +136,7 @@ public interface MatrixClient {
    * @param roomId The id of the room to join.
    * @return {@code true} if joining the room was successful, {@code false} otherwise.
    */
-  boolean joinRoom(MatrixRoomId roomId);
+  CompletableFuture<Void> joinRoom(MatrixRoomId roomId);
 
   /**
    * Attempts to leave a room.
@@ -142,5 +144,5 @@ public interface MatrixClient {
    * @param roomId The id of the room to leave.
    * @return {@code true} if leaving the room was successful, {@code false} otherwise.
    */
-  boolean leaveRoom(MatrixRoomId roomId);
+  CompletableFuture<Void> leaveRoom(MatrixRoomId roomId);
 }

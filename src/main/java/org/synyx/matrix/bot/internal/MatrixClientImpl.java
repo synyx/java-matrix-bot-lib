@@ -8,6 +8,8 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixClient;
@@ -85,16 +87,23 @@ public class MatrixClientImpl implements MatrixClient {
       try {
         if (!authentication.isAuthenticated()) {
           try {
-            api.login();
-          } catch (IOException e) {
-            throw new MatrixBackoffException("Failed to login to matrix server!", e);
-          } catch (MatrixApiException e) {
-            throw new MatrixCommunicationException("Failed to login to matrix server!", e);
+            api.login().get();
+          } catch (ExecutionException e) {
+            final var cause = e.getCause();
+            if (cause instanceof IOException) {
+              throw new MatrixBackoffException("Failed to login to matrix server!", cause);
+            } else if (cause instanceof MatrixApiException matrixApiException) {
+              throw matrixApiException;
+            } else {
+              throw new MatrixCommunicationException("Failed to login to matrix server!", cause);
+            }
           }
 
-          LOG.info(
-              "Successfully logged in to matrix server as {}",
-              authentication.getUserId().map(MatrixUserId::toString).orElse("UNKNOWN"));
+          if (LOG.isInfoEnabled()) {
+            LOG.info(
+                "Successfully logged in to matrix server as {}",
+                authentication.getUserId().map(MatrixUserId::toString).orElse("UNKNOWN"));
+          }
         }
 
         state =
@@ -104,10 +113,13 @@ public class MatrixClientImpl implements MatrixClient {
 
         SyncResponseDto syncResponse;
         try {
-          syncResponse =
-              api.syncFull()
-                  .orElseThrow(() -> new MatrixCommunicationException("No data in initial sync"));
-        } catch (MatrixApiException | IOException e) {
+          syncResponse = api.syncFull().get();
+        } catch (ExecutionException e) {
+          final var cause = e.getCause();
+          if (cause instanceof MatrixApiException matrixApiException) {
+            throw new MatrixCommunicationException("No data in initial sync", e);
+          }
+
           throw new MatrixBackoffException("Failed to perform initial sync", e);
         }
 
@@ -128,27 +140,23 @@ public class MatrixClientImpl implements MatrixClient {
         }
 
         while (!interruptionRequested) {
-          Optional<SyncResponseDto> maybePartialSyncResponse;
 
           try {
-            maybePartialSyncResponse = api.sync(lastBatch);
-          } catch (MatrixApiException | IOException e) {
-            throw new MatrixBackoffException("Could not partial sync", e);
+            syncResponse = api.sync(lastBatch).get();
+          } catch (ExecutionException e) {
+            throw new MatrixBackoffException("Could not partial sync", e.getCause());
           }
 
-          if (maybePartialSyncResponse.isPresent()) {
-            syncResponse = maybePartialSyncResponse.get();
-            lastBatch = syncResponse.nextBatch();
+          lastBatch = syncResponse.nextBatch();
 
-            stateSynchronizer.synchronizeState(syncResponse);
+          stateSynchronizer.synchronizeState(syncResponse);
 
-            if (eventNotifier != null) {
-              eventNotifier.notifyFromSynchronizationResponse(state, syncResponse);
-            }
+          if (eventNotifier != null) {
+            eventNotifier.notifyFromSynchronizationResponse(state, syncResponse);
+          }
 
-            if (persistedState != null) {
-              persistedState.setLastBatch(lastBatch);
-            }
+          if (persistedState != null) {
+            persistedState.setLastBatch(lastBatch);
           }
 
           currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
@@ -195,40 +203,48 @@ public class MatrixClientImpl implements MatrixClient {
   }
 
   @Override
-  public Optional<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri) {
+  public CompletableFuture<MatrixDownloadedMedia> downloadMedia(MatrixContentUri contentUri) {
 
-    try {
-      return Optional.of(api.downloadMedia(contentUri.getServerName(), contentUri.getMediaId()));
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to download media", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not download media", e);
+    return api.downloadMedia(contentUri.getServerName(), contentUri.getMediaId())
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to download media", e);
+              throw new RuntimeException(e);
+            });
+  }
+
+  @Override
+  public CompletableFuture<MatrixContentUri> uploadMedia(
+      byte[] data, String contentType, String fileName) {
+
+    return api.uploadMedia(contentType, fileName, data)
+        .thenApply(
+            value ->
+                MatrixContentUri.from(value)
+                    .orElseThrow(
+                        () ->
+                            new IllegalStateException(
+                                "Not a valid matrix content uri: %s".formatted(value))))
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to upload media", e);
+              throw new RuntimeException(e);
+            });
+  }
+
+  @Override
+  public CompletableFuture<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
+
+    final var maybeTextMessage = MatrixTextMessage.create(messageBody);
+    if (maybeTextMessage.isEmpty()) {
+      return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid messageBody"));
     }
 
-    return Optional.empty();
+    return sendMessage(roomId, maybeTextMessage.get());
   }
 
   @Override
-  public Optional<MatrixContentUri> uploadMedia(byte[] data, String contentType, String fileName) {
-
-    try {
-      return MatrixContentUri.from(api.uploadMedia(contentType, fileName, data));
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to upload media", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not upload media", e);
-    }
-
-    return Optional.empty();
-  }
-
-  @Override
-  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
-    return MatrixTextMessage.create(messageBody).flatMap(message -> sendMessage(roomId, message));
-  }
-
-  @Override
-  public Optional<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message) {
+  public CompletableFuture<MatrixEventId> sendMessage(MatrixRoomId roomId, MatrixMessage message) {
 
     final Optional<?> eventDto =
         switch (message) {
@@ -248,61 +264,67 @@ public class MatrixClientImpl implements MatrixClient {
           default -> Optional.empty();
         };
 
-    try {
-      return MatrixEventId.from(api.sendEvent(roomId.getFormatted(), "m.room.message", eventDto));
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to send message", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not send message", e);
+    if (eventDto.isEmpty()) {
+      return CompletableFuture.failedFuture(
+          new IllegalArgumentException("Unsupported message type"));
     }
 
-    return Optional.empty();
+    return api.sendEvent(roomId.getFormatted(), "m.room.message", eventDto.get())
+        .thenApply(
+            value ->
+                MatrixEventId.from(value)
+                    .orElseThrow(
+                        () ->
+                            new IllegalStateException(
+                                "Not a valid matrix event id: %s".formatted(value))))
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to send message", e);
+              throw new RuntimeException(e);
+            });
   }
 
   @Override
-  public Optional<MatrixEventId> addReaction(
+  public CompletableFuture<MatrixEventId> addReaction(
       MatrixRoomId roomId, MatrixEventId eventId, String reaction) {
 
     final var reactionDto =
         new ReactionDto(new ReactionRelatesToDto(eventId.getFormatted(), reaction));
-    try {
-      return MatrixEventId.from(api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto));
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to add reaction", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not add reaction", e);
-    }
 
-    return Optional.empty();
+    return api.sendEvent(roomId.getFormatted(), "m.reaction", reactionDto)
+        .thenApply(
+            value ->
+                MatrixEventId.from(value)
+                    .orElseThrow(
+                        () ->
+                            new IllegalStateException(
+                                "Not a valid matrix event id: %s".formatted(value))))
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to add reaction", e);
+              throw new RuntimeException(e);
+            });
   }
 
   @Override
-  public boolean joinRoom(MatrixRoomId roomId) {
+  public CompletableFuture<Void> joinRoom(MatrixRoomId roomId) {
 
-    try {
-      api.joinRoom(roomId.getFormatted(), "i'm a bot");
-      return true;
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to join room", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not join room", e);
-    }
-
-    return false;
+    return api.joinRoom(roomId.getFormatted(), "i'm a bot")
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to join room", e);
+              throw new RuntimeException(e);
+            });
   }
 
   @Override
-  public boolean leaveRoom(MatrixRoomId roomId) {
+  public CompletableFuture<Void> leaveRoom(MatrixRoomId roomId) {
 
-    try {
-      api.leaveRoom(roomId.getFormatted(), "i'm a bot");
-      return true;
-    } catch (InterruptedException | IOException e) {
-      LOG.error("Failed to leave room", e);
-    } catch (MatrixApiException e) {
-      LOG.warn("Could not leave room", e);
-    }
-
-    return false;
+    return api.leaveRoom(roomId.getFormatted(), "i'm a bot")
+        .exceptionally(
+            e -> {
+              LOG.error("Failed to leave room", e);
+              throw new RuntimeException(e);
+            });
   }
 }
