@@ -2,6 +2,7 @@ plugins {
   id 'java'
   id 'java-library'
   id 'maven-publish'
+  id 'signing'
   id 'com.diffplug.spotless' version "8.10.0"
 }
 
@@ -16,6 +17,7 @@ java {
   toolchain {
     languageVersion.set(JavaLanguageVersion.of(21))
   }
+  withJavadocJar()
   withSourcesJar()
 }
 
@@ -39,16 +41,36 @@ publishing {
   publications {
     javaMatrixBotLib(MavenPublication) {
       from components.java
+      pom {
+        name = "Java Matrix Bot Lib"
+        description = "Library proving an API to interact with a matrix server as a bot."
+        url = "https://github.com/synyx/java-matrix-bot-lib"
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com/synyx/java-matrix-bot-lib.git'
+          developerConnection = 'scm:git:ssh://github.com:synyx/java-matrix-bot-lib.git'
+          url = 'https://github.com/synyx/java-matrix-bot-lib'
+        }
+      }
     }
   }
 
   repositories {
     maven {
-      name = 'synyxPublicReleases'
-      url = uri('https://nexus.synyx.de/repository/public-releases/')
-      credentials(PasswordCredentials)
+      name = "LocalMavenWithChecksums"
+      url = uri(layout.buildDirectory.dir("staging-deploy"))
     }
   }
+}
+
+signing {
+  useGpgCmd()
+  sign publishing.publications.javaMatrixBotLib
 }
 
 spotless {
