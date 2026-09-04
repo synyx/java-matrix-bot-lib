@@ -40,7 +40,7 @@ public class MyMatrixBot implements MatrixEventConsumer {
   }
 
   @Override
-  public void onMessage(MatrixState state, MatrixRoom room, MatrixMessage message) {
+  public void onMessage(MatrixState state, MatrixMessageEvent event) {
     // ...
   }
 }
