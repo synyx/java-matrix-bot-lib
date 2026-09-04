@@ -51,6 +51,15 @@ publishing {
             url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
           }
         }
+        developers {
+          developer {
+            id = 'synyx'
+            name = 'synyx Developer'
+            email = 'mavencentral+java-matrix-bot-lib@synyx.de'
+            organization = 'synyx'
+            organizationUrl = 'https://synyx.de'
+          }
+        }
         scm {
           connection = 'scm:git:git://github.com/synyx/java-matrix-bot-lib.git'
           developerConnection = 'scm:git:ssh://github.com:synyx/java-matrix-bot-lib.git'
