@@ -1,22 +1,11 @@
 # Java Matrix Bot Lib
 
-A java library for communicating with a [Matrix](https://matrix.org) server, meant to aid in creating a chatbot.
+A Java library for communicating with a [Matrix](https://matrix.org) server, meant to aid in creating a chatbot.
 
 ## Usage
 
-Currently requires at least JDK 21. If you are using Maven, add the following repository to your `pom.xml`:
-
-```xml
-
-<repositories>
-    <repository>
-        <id>synyx-public</id>
-        <url>https://nexus.synyx.de/repository/public-releases/</url>
-    </repository>
-</repositories>
-```
-
-then you can add `java-matrix-bot-lib` as a dependency:
+Currently requires at least JDK 21.
+If you are using Maven, add the following repository to your `pom.xml` to add `java-matrix-bot-lib` as a dependency:
 
 ```xml
 
