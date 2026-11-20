@@ -2,6 +2,7 @@ package org.synyx.matrix.bot.domain.event;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 
@@ -38,7 +39,7 @@ public class MatrixRoomInviteEvent {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) return false;
     MatrixRoomInviteEvent that = (MatrixRoomInviteEvent) o;
@@ -52,7 +53,6 @@ public class MatrixRoomInviteEvent {
 
   @Override
   public String toString() {
-
     return "MatrixRoomInviteEvent{" + "roomId=" + roomId + ", invitedById=" + invitedById + '}';
   }
 }

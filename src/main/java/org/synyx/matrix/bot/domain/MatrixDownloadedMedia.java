@@ -2,14 +2,15 @@ package org.synyx.matrix.bot.domain;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixDownloadedMedia {
 
   private final String contentType;
-  private final String fileName;
+  @Nullable private final String fileName;
   private final byte[] data;
 
-  private MatrixDownloadedMedia(String contentType, String fileName, byte[] data) {
+  private MatrixDownloadedMedia(String contentType, @Nullable String fileName, byte[] data) {
 
     this.contentType = contentType;
     this.fileName = fileName;
@@ -17,7 +18,7 @@ public class MatrixDownloadedMedia {
   }
 
   public static Optional<MatrixDownloadedMedia> create(
-      String contentType, String fileName, byte[] data) {
+      @Nullable String contentType, @Nullable String fileName, byte @Nullable [] data) {
 
     contentType = Objects.requireNonNullElse(contentType, "application/octet-stream");
     data = Objects.requireNonNullElseGet(data, () -> new byte[0]);

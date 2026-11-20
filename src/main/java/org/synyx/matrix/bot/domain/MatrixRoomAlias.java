@@ -3,6 +3,7 @@ package org.synyx.matrix.bot.domain;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixRoomAlias {
 
@@ -34,27 +35,23 @@ public class MatrixRoomAlias {
   }
 
   public static Optional<MatrixRoomAlias> build(String localPart, String domain) {
-
     return from("#%s:%s".formatted(localPart, domain));
   }
 
   public String getLocalPart() {
-
     return localPart;
   }
 
   public String getDomain() {
-
     return domain;
   }
 
   public String getFormatted() {
-
     return "#%s:%s".formatted(localPart, domain);
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) {
       return false;
@@ -65,13 +62,11 @@ public class MatrixRoomAlias {
 
   @Override
   public int hashCode() {
-
     return Objects.hash(localPart, domain);
   }
 
   @Override
   public String toString() {
-
     return getFormatted();
   }
 }

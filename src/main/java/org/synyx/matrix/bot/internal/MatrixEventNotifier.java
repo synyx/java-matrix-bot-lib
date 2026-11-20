@@ -29,6 +29,8 @@ import org.synyx.matrix.bot.internal.api.dto.MembershipStateDto;
 import org.synyx.matrix.bot.internal.api.dto.RoomTimelineDto;
 import org.synyx.matrix.bot.internal.api.dto.StrippedStateEventDto;
 import org.synyx.matrix.bot.internal.api.dto.SyncResponseDto;
+import org.synyx.matrix.bot.internal.api.dto.SyncRoomsDto;
+import org.synyx.matrix.bot.internal.api.dto.UnsignedDataDto;
 import org.synyx.matrix.bot.internal.api.dto.event.MemberEventContentDto;
 import org.synyx.matrix.bot.internal.api.dto.event.MessageEventContentDto;
 
@@ -63,10 +65,7 @@ public class MatrixEventNotifier {
       InternalMatrixState state, SyncResponseDto syncResponse) {
 
     final var maybeRooms = Optional.ofNullable(syncResponse.rooms());
-    final var invitedRooms =
-        maybeRooms
-            .flatMap(syncRoomsDto -> Optional.ofNullable(syncRoomsDto.invite()))
-            .orElseGet(HashMap::new);
+    final var invitedRooms = maybeRooms.map(SyncRoomsDto::invite).orElseGet(HashMap::new);
 
     for (var entry : invitedRooms.entrySet()) {
 
@@ -79,10 +78,7 @@ public class MatrixEventNotifier {
           .forEach(eventDto -> notifyAboutInviteEvent(state, roomId, eventDto));
     }
 
-    final var joinedRooms =
-        maybeRooms
-            .flatMap(syncRoomsDto -> Optional.ofNullable(syncRoomsDto.join()))
-            .orElseGet(HashMap::new);
+    final var joinedRooms = maybeRooms.map(SyncRoomsDto::join).orElseGet(HashMap::new);
 
     for (var entry : joinedRooms.entrySet()) {
 
@@ -94,10 +90,7 @@ public class MatrixEventNotifier {
           .forEach(eventDto -> notifyAboutTimelineEvent(state, roomId, eventDto));
     }
 
-    final var leftRooms =
-        maybeRooms
-            .flatMap(syncRoomsDto -> Optional.ofNullable(syncRoomsDto.leave()))
-            .orElseGet(HashMap::new);
+    final var leftRooms = maybeRooms.map(SyncRoomsDto::leave).orElseGet(HashMap::new);
 
     for (var entry : leftRooms.entrySet()) {
 
@@ -184,8 +177,7 @@ public class MatrixEventNotifier {
     // > If not present, the user's previous membership must be assumed as leave.
     final var previousMembership =
         maybePreviousContent
-            .flatMap(
-                memberEventContentDto -> Optional.ofNullable(memberEventContentDto.membership()))
+            .map(MemberEventContentDto::membership)
             .filter(membershipStateDto -> membershipStateDto != MembershipStateDto.UNKNOWN)
             .orElse(MembershipStateDto.LEAVE);
 
@@ -250,17 +242,14 @@ public class MatrixEventNotifier {
 
   private <T> Optional<T> getPreviousContent(ClientEventDto event, Class<T> clazz) {
 
-    final var maybeJson =
-        Optional.ofNullable(event)
-            .flatMap(clientEventDto -> Optional.ofNullable(clientEventDto.unsigned()))
-            .flatMap(unsignedDataDto -> Optional.ofNullable(unsignedDataDto.prevContent()));
+    final var maybeJson = Optional.ofNullable(event.unsigned()).map(UnsignedDataDto::prevContent);
 
     if (maybeJson.isEmpty()) {
       return Optional.empty();
     }
 
     try {
-      return Optional.ofNullable(objectMapper.treeToValue(maybeJson.get(), clazz));
+      return Optional.of(objectMapper.treeToValue(maybeJson.get(), clazz));
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }

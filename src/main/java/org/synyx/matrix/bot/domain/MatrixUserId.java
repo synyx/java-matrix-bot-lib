@@ -3,6 +3,7 @@ package org.synyx.matrix.bot.domain;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixUserId {
 
@@ -35,22 +36,19 @@ public class MatrixUserId {
   }
 
   public String getLocalPart() {
-
     return localPart;
   }
 
   public String getDomain() {
-
     return domain;
   }
 
   public String getFormatted() {
-
     return "@%s:%s".formatted(localPart, domain);
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) {
       return false;
@@ -61,13 +59,11 @@ public class MatrixUserId {
 
   @Override
   public int hashCode() {
-
     return Objects.hash(localPart, domain);
   }
 
   @Override
   public String toString() {
-
     return getFormatted();
   }
 }

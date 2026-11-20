@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.synyx.matrix.bot.MatrixClient;
@@ -45,10 +46,9 @@ public class MatrixClientImpl implements MatrixClient {
   private final MatrixAuthentication authentication;
   private final ObjectMapper objectMapper;
   private final MatrixApi api;
-  private InternalMatrixState state;
-  private MatrixStateSynchronizer stateSynchronizer;
-  private MatrixPersistedStateProvider persistedState;
-  private MatrixEventNotifier eventNotifier;
+  @Nullable private InternalMatrixState state;
+  @Nullable private MatrixPersistedStateProvider persistedState;
+  @Nullable private MatrixEventNotifier eventNotifier;
   private boolean interruptionRequested;
   private long currentBackoffInSec;
 
@@ -65,6 +65,7 @@ public class MatrixClientImpl implements MatrixClient {
             .build();
     this.api = new MatrixApi(url, authentication, objectMapper);
     this.state = null;
+    this.persistedState = null;
     this.eventNotifier = null;
     this.interruptionRequested = false;
     this.currentBackoffInSec = DEFAULT_BACKOFF_IN_SEC;
@@ -82,6 +83,7 @@ public class MatrixClientImpl implements MatrixClient {
 
   @Override
   public void syncContinuous() throws InterruptedException {
+    MatrixStateSynchronizer stateSynchronizer;
 
     while (!interruptionRequested) {
       try {
@@ -117,7 +119,7 @@ public class MatrixClientImpl implements MatrixClient {
         } catch (ExecutionException e) {
           final var cause = e.getCause();
           if (cause instanceof MatrixApiException matrixApiException) {
-            throw new MatrixCommunicationException("No data in initial sync", e);
+            throw new MatrixCommunicationException("No data in initial sync", matrixApiException);
           }
 
           throw new MatrixBackoffException("Failed to perform initial sync", e);
@@ -236,11 +238,13 @@ public class MatrixClientImpl implements MatrixClient {
   public CompletableFuture<MatrixEventId> sendMessage(MatrixRoomId roomId, String messageBody) {
 
     final var maybeTextMessage = MatrixTextMessage.create(messageBody);
-    if (maybeTextMessage.isEmpty()) {
-      return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid messageBody"));
-    }
 
-    return sendMessage(roomId, maybeTextMessage.get());
+    return maybeTextMessage
+        .map(matrixTextMessage -> sendMessage(roomId, matrixTextMessage))
+        .orElseGet(
+            () ->
+                CompletableFuture.failedFuture(
+                    new IllegalArgumentException("Invalid messageBody")));
   }
 
   @Override

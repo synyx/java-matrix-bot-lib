@@ -3,6 +3,7 @@ package org.synyx.matrix.bot.domain;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixEventId {
 
@@ -14,7 +15,6 @@ public class MatrixEventId {
   private final String opaqueId;
 
   private MatrixEventId(String opaqueId) {
-
     this.opaqueId = opaqueId;
   }
 
@@ -31,17 +31,15 @@ public class MatrixEventId {
   }
 
   public String getOpaqueId() {
-
     return opaqueId;
   }
 
   public String getFormatted() {
-
     return "$%s".formatted(opaqueId);
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) {
       return false;
@@ -52,13 +50,11 @@ public class MatrixEventId {
 
   @Override
   public int hashCode() {
-
     return Objects.hashCode(opaqueId);
   }
 
   @Override
   public String toString() {
-
     return getFormatted();
   }
 }
