@@ -3,18 +3,19 @@ package org.synyx.matrix.bot.domain;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixRoomId {
 
   /*
-  https://spec.matrix.org/v1.14/appendices/#room-ids
+  https://spec.matrix.org/v1.19/appendices/#room-ids
    */
-  private static final Pattern ROOM_ID_PATTERN = Pattern.compile("^!([^:\\x00]+):(.+)$");
+  private static final Pattern ROOM_ID_PATTERN = Pattern.compile("^!([^:\\x00]+)(?::(.+))?$");
 
   private final String opaqueId;
-  private final String domain;
+  @Nullable private final String domain;
 
-  private MatrixRoomId(String opaqueId, String domain) {
+  private MatrixRoomId(String opaqueId, @Nullable String domain) {
 
     this.opaqueId = opaqueId;
     this.domain = domain;
@@ -34,18 +35,19 @@ public class MatrixRoomId {
   }
 
   public String getOpaqueId() {
-
     return opaqueId;
   }
 
-  public String getDomain() {
-
-    return domain;
+  public Optional<String> getDomain() {
+    return Optional.ofNullable(domain);
   }
 
   public String getFormatted() {
-
-    return "!%s:%s".formatted(opaqueId, domain);
+    if (domain == null) {
+      return "!%s".formatted(opaqueId);
+    } else {
+      return "!%s:%s".formatted(opaqueId, domain);
+    }
   }
 
   @Override
@@ -60,13 +62,11 @@ public class MatrixRoomId {
 
   @Override
   public int hashCode() {
-
     return Objects.hash(opaqueId, domain);
   }
 
   @Override
   public String toString() {
-
     return getFormatted();
   }
 }
