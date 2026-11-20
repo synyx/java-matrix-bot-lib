@@ -3,6 +3,7 @@ package org.synyx.matrix.bot.domain;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 public class MatrixContentUri {
 
@@ -47,7 +48,7 @@ public class MatrixContentUri {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) return false;
     MatrixContentUri that = (MatrixContentUri) o;

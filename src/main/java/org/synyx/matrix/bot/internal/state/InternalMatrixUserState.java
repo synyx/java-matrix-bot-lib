@@ -1,13 +1,14 @@
 package org.synyx.matrix.bot.internal.state;
 
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.domain.MatrixUserId;
 import org.synyx.matrix.bot.domain.state.MatrixUser;
 
 public class InternalMatrixUserState implements MatrixUser {
 
   private final MatrixUserId id;
-  private String displayName;
+  @Nullable private String displayName;
 
   private InternalMatrixUserState(MatrixUserId id) {
 
@@ -32,7 +33,7 @@ public class InternalMatrixUserState implements MatrixUser {
     return Optional.ofNullable(displayName);
   }
 
-  public void setDisplayName(String displayName) {
+  public void setDisplayName(@Nullable String displayName) {
     this.displayName = displayName;
   }
 }

@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.MatrixCommunicationException;
 import org.synyx.matrix.bot.domain.MatrixDownloadedMedia;
 import org.synyx.matrix.bot.domain.MatrixUserId;
@@ -62,11 +63,10 @@ public class MatrixApi {
   }
 
   public void terminateOpenConnections() {
-
     httpClient.shutdownNow();
   }
 
-  public CompletableFuture<Void> login() {
+  public CompletableFuture<@Nullable Void> login() {
 
     final var futureResponse =
         httpClient.sendAsync(
@@ -151,7 +151,7 @@ public class MatrixApi {
         });
   }
 
-  public CompletableFuture<Void> joinRoom(String roomId, String reason) {
+  public CompletableFuture<@Nullable Void> joinRoom(String roomId, String reason) {
 
     final var uri = "/_matrix/client/v3/rooms/%s/join".formatted(roomId);
     final var futureResponse =
@@ -166,7 +166,7 @@ public class MatrixApi {
         });
   }
 
-  public CompletableFuture<Void> leaveRoom(String roomId, String reason) {
+  public CompletableFuture<@Nullable Void> leaveRoom(String roomId, String reason) {
 
     final var uri = "/_matrix/client/v3/rooms/%s/leave".formatted(roomId);
     final var futureResponse =
@@ -226,12 +226,12 @@ public class MatrixApi {
         });
   }
 
-  private HttpRequest.Builder get(String url, String query) {
+  private HttpRequest.Builder get(String url, @Nullable String query) {
 
     return request(url, query).GET();
   }
 
-  private <T> HttpRequest.Builder put(String url, String query, T body) {
+  private <T> HttpRequest.Builder put(String url, @Nullable String query, T body) {
 
     try {
       return request(url, query)
@@ -242,7 +242,7 @@ public class MatrixApi {
     }
   }
 
-  private <T> HttpRequest.Builder postJson(String url, String query, T body) {
+  private <T> HttpRequest.Builder postJson(String url, @Nullable String query, T body) {
 
     try {
       return request(url, query)
@@ -254,14 +254,14 @@ public class MatrixApi {
   }
 
   private HttpRequest.Builder postBinary(
-      String url, String query, String contentType, byte[] data) {
+      String url, String query, @Nullable String contentType, byte[] data) {
 
     return request(url, query)
         .header(CONTENT_TYPE, Objects.requireNonNullElse(contentType, "application/octet-stream"))
         .POST(HttpRequest.BodyPublishers.ofByteArray(data));
   }
 
-  private HttpRequest.Builder request(String url, String query) {
+  private HttpRequest.Builder request(String url, @Nullable String query) {
 
     HttpRequest.Builder builder;
     try {

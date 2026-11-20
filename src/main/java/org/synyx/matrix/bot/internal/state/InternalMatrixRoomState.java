@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.domain.MatrixRoomAlias;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 import org.synyx.matrix.bot.domain.MatrixUserId;
@@ -13,8 +14,8 @@ import org.synyx.matrix.bot.domain.state.MatrixUser;
 public class InternalMatrixRoomState implements MatrixRoom {
 
   private final MatrixRoomId id;
-  private MatrixRoomAlias canonicalAlias;
-  private String name;
+  @Nullable private MatrixRoomAlias canonicalAlias;
+  @Nullable private String name;
 
   private final List<InternalMatrixUserState> roomUsers;
 
@@ -43,7 +44,7 @@ public class InternalMatrixRoomState implements MatrixRoom {
     return Optional.ofNullable(canonicalAlias);
   }
 
-  public void setCanonicalAlias(MatrixRoomAlias canonicalAlias) {
+  public void setCanonicalAlias(@Nullable MatrixRoomAlias canonicalAlias) {
     this.canonicalAlias = canonicalAlias;
   }
 
@@ -52,7 +53,7 @@ public class InternalMatrixRoomState implements MatrixRoom {
     return Optional.ofNullable(name);
   }
 
-  public void setName(String name) {
+  public void setName(@Nullable String name) {
     this.name = name;
   }
 

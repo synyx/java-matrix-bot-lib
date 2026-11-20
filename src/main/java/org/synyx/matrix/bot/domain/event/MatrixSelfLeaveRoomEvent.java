@@ -2,6 +2,7 @@ package org.synyx.matrix.bot.domain.event;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.domain.MatrixRoomId;
 
 public class MatrixSelfLeaveRoomEvent {
@@ -27,7 +28,7 @@ public class MatrixSelfLeaveRoomEvent {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
 
     if (o == null || getClass() != o.getClass()) return false;
     MatrixSelfLeaveRoomEvent that = (MatrixSelfLeaveRoomEvent) o;

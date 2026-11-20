@@ -1,21 +1,23 @@
 package org.synyx.matrix.bot.domain.message;
 
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.synyx.matrix.bot.domain.MatrixContentUri;
 
 public class MatrixImageMessage implements MatrixMessage {
 
   private final String body;
-  private final String fileName;
+  @Nullable private final String fileName;
   private final Object url;
 
-  private MatrixImageMessage(String body, String fileName, Object url) {
+  private MatrixImageMessage(String body, @Nullable String fileName, Object url) {
     this.body = body;
     this.fileName = fileName;
     this.url = url;
   }
 
-  public static Optional<MatrixImageMessage> create(String body, String fileName, String url) {
+  public static Optional<MatrixImageMessage> create(
+      String body, @Nullable String fileName, String url) {
 
     if (body == null) {
       return Optional.empty();
